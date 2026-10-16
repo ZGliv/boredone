@@ -1,0 +1,23 @@
+{
+  "name": "boredone",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 4342",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4343",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "leaflet": "1.9.4",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  },
+  "devDependencies": {
+    "vite": "6.4.4"
+  },
+  "engines": {
+    "node": "24.x"
+  }
+}

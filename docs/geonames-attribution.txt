@@ -1,0 +1,4 @@
+City directory derived from GeoNames (https://www.geonames.org/), licensed under Creative Commons Attribution 4.0 International (https://creativecommons.org/licenses/by/4.0/).
+Sources: https://download.geonames.org/export/dump/cities15000.zip and https://download.geonames.org/export/dump/admin1CodesASCII.txt
+Downloaded: October 15, 2026, America/New_York.
+Modified: reduced to geoname ID, display name, ASCII name, administrative region, country code, latitude, longitude and population; coordinates rounded to five decimal places and sorted by population. 34,165 records.

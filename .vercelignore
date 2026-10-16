@@ -1,0 +1,8 @@
+output/
+.playwright-cli/
+.git/
+node_modules/
+.env*
+README.md
+test/
+scripts/
