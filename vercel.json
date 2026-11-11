@@ -2,12 +2,28 @@
   "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "functions": { "api/discover.js": { "maxDuration": 60 } },
+  "functions": {
+    "api/discover.js": {
+      "maxDuration": 60
+    },
+    "api/offline-area.js": {
+      "maxDuration": 30
+    },
+    "api/editorial.js": {
+      "maxDuration": 30
+    },
+    "api/account-removal.js": {
+      "maxDuration": 60
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
         {
           "key": "Referrer-Policy",
           "value": "strict-origin-when-cross-origin"
@@ -18,7 +34,16 @@
         },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tile.openstreetmap.org; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+          "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://upload.wikimedia.org https://thumb.wikimedia.org https://2e6a5e94616de971545f8e1eed24db2c.cdn.bubble.io https://a.mktgcdn.com https://allafamiglia.com https://api.chowbus.com https://assets.culturaldistrict.org https://barcelonawinebar.com https://bierport.com https://butcherandtherye.com https://butterjoint.com https://casareynapgh.com https://cbco-www.storage.googleapis.com https://cdn.filestackcontent.com https://cdn.foodeist.com https://cdn.prod.website-files.com https://cdn.rootsnaturalkitchen.com https://cdn.shopify.com https://cdn.spotapps.co https://chickenlatino.net https://chinatowninn.net https://churchbrew.com https://cloudassets.starbucks.com https://colangelopgh.com https://commonplacecoffee.com https://d3ojpf34km1iny.cloudfront.net https://dianoiaseatery.com https://dishosteria.com https://framerusercontent.com https://gennarospizzapasta.com https://hilltopcoffeepgh.com https://home.howlatthemoon.com https://hunanbar.com https://huszarpittsburgh.com https://i.vimeocdn.com https://i0.wp.com https://ilebvbmwmltxsmzqvosm.supabase.co https://image-cdn.chowlyinc.com https://imagedelivery.net https://images.getbento.com https://images.mypiada.com https://images.squarespace-cdn.com https://img1.wsimg.com https://industrypgh.com https://ineffablecaphe.com https://ironbornpizza.com https://irp.cdn-website.com https://italianvillagepizza.com https://jasonaldeansbar.com https://kurasushi.com https://lagourmandinebakery.com https://laprima.com https://le-cdn.hibuwebsites.com https://legendseaterypgh.com https://littlecorner.top https://locations.eatnpark.com https://locations.hellobistro.com https://mariospgh.com https://maxsalleghenytavern.com https://meatandpotatoespgh.com https://media.fogodechao.com https://mezzalunacafe.com https://mikesbeerbar.com https://mlhxrkjoggqr.i.optimole.com https://nickysthaikitchen.com https://northshoretavern.com https://otbbicyclecafe.com https://p1.socds.net https://pamelasdiner.com https://paneepronto.com https://pitamyshawarma.com https://pittsburghwinery.com https://pizzamilano.wpenginepowered.com https://redbeardspgh.com https://redfinblues.com https://redhawkcoffee.com https://richarddeshantz.com https://rollitorbowlit.com https://salemsmarketgrill.com https://sausalido.net https://sidecar412.com https://slicelife.imgix.net https://smiling-moose.com https://static.parastorage.com https://static.showit.co https://static.spotapps.co https://static.wixstatic.com https://static01.sh-websites.com https://storyblok.pleinaircdn.com https://tastytaquitos.com https://tequilacowboy.com https://tessaros.com https://tomswatchbar.com https://tupelohoneycafe.com https://website-cdn.menusifu.com https://websites.swipeby.ai https://www.arcadecomedytheater.com https://www.arsenalciderhouse.com https://www.babylovestacospgh.com https://www.bakersfieldtacos.com https://www.breadworkspgh.com https://www.cityworksrestaurant.com https://www.colombino.com https://www.cupkajoe.com https://www.dineattheporch.com https://www.eaglerestaurant.com https://www.echt-coffee.com https://www.eddiemerlots.com https://www.enricobiscotti.com https://www.hofbrauhauspittsburgh.com https://www.hotchikn.com https://www.iluvcantina.com https://www.maikuvietnamesepho.com https://www.meltingpot.com https://www.milkshakefactory.com https://www.millieshomemade.com https://www.papajs.com https://www.peets.com https://www.phipps.conservatory.org https://www.play.pitt.edu https://www.puttery.com https://www.puttshack.com https://www.thecolombianspot-pgh.com https://www.tillthebitterends.com; connect-src 'self' https://tiles.openfreemap.org; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+        }
+      ]
+    },
+    {
+      "source": "/photo-previews/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
         }
       ]
     }

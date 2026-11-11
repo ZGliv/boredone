@@ -7,15 +7,21 @@
     "dev": "vite --host 127.0.0.1 --port 4342",
     "build": "vite build",
     "preview": "vite preview --host 127.0.0.1 --port 4343",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "test:db": "node --test test/database/*.test.js"
   },
   "dependencies": {
+    "@mapbox/vector-tile": "^3.0.0",
+    "@supabase/supabase-js": "2.119.0",
     "leaflet": "1.9.4",
+    "maplibre-gl": "^6.15.0",
+    "pbf": "^5.1.2",
     "react": "18.3.1",
     "react-dom": "18.3.1"
   },
   "devDependencies": {
-    "vite": "6.4.4"
+    "@phosphor-icons/core": "^2.1.1",
+    "vite": "6.4.5"
   },
   "engines": {
     "node": "24.x"

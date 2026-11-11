@@ -77,7 +77,7 @@ test("invalid, duplicate or oversized backup entries are rejected before merging
   assert.throws(() =>
     validateOuting({
       ...a,
-      photos: Array(7).fill("data:image/png;base64,AAAA"),
+      photos: Array(25).fill("data:image/png;base64,AAAA"),
     }),
   );
   assert.throws(() =>
@@ -103,4 +103,14 @@ test("unsafe links are not rendered as active URLs", () => {
   assert.equal(safeUrl("javascript:alert(1)"), "");
   assert.equal(safeUrl("data:text/html,evil"), "");
   assert.equal(safeUrl("https://example.com/"), "https://example.com/");
+});
+
+test("legacy memories and 24-photo albums round-trip without replacing visits",()=>{
+ const old={...entry(),status:'visited',visitDate:localDate(),with:'Alex',photos:['data:image/png;base64,AAAA']};
+ const newer={...old,id:'second-visit',photos:Array(24).fill('data:image/png;base64,AAAA')};
+ const imported=validateBackup({app:'boredone',version:1,outings:[old,newer]});
+ assert.equal(imported[0].photos.length,1);
+ assert.equal(imported[1].photos.length,24);
+ assert.equal(imported[0].with,'Alex');
+ assert.equal(mergeOutings([old],imported).outings.length,2);
 });

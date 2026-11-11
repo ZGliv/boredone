@@ -1,6 +1,6 @@
 export const VERSION = 1;
 export const MAX_OUTINGS = 500;
-export const MAX_PHOTOS = 6;
+export const MAX_PHOTOS = 24;
 export const MAX_BACKUP_BYTES = 50 * 1024 * 1024;
 export function blankLibrary() {
   return { version: VERSION, revision: 0, outings: [] };
@@ -72,7 +72,7 @@ export function validatePlace(place) {
   }
   return p;
 }
-export function validateOuting(outing) {
+export function validateOuting(outing,{preserveCalendarDate=false}={}) {
   if (!outing || typeof outing !== "object") throw new Error("Invalid outing.");
   const x = {
     id: field(outing.id, "outing ID", 100),
@@ -100,7 +100,7 @@ export function validateOuting(outing) {
     (x.status === "visited" && !x.visitDate)
   )
     throw new Error("Invalid outing date.");
-  if (x.visitDate > localDate())
+  if (!preserveCalendarDate && x.visitDate > localDate())
     throw new Error("A memory cannot have a future date.");
   if (!Number.isInteger(x.rating) || x.rating < 0 || x.rating > 5)
     throw new Error("Invalid memory rating.");

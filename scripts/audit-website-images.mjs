@@ -1,0 +1,8 @@
+// Temporary local visual audit only. These images are never added to the app bundle.
+import{readFile,writeFile,mkdir,access}from'node:fs/promises';import{createHash}from'node:crypto';import{lookup}from'node:dns/promises';import{publicAddress}from'../server/site-previews.js';
+const[input,out]=process.argv.slice(2);if(!out)throw Error('Provide preview JSON and audit directory');await mkdir(out,{recursive:true});
+const places=JSON.parse(await readFile(input)).places.filter(p=>p.websitePhoto),results=[];
+async function inspect(p){const photo=p.websitePhoto,file=createHash('sha256').update(photo.url).digest('hex').slice(0,20)+'.image';
+ try{try{await access(out+'/'+file);}catch{const addresses=await lookup(new URL(photo.url).hostname,{all:true});if(!addresses.length||addresses.some(a=>!publicAddress(a.address)))throw Error('Non-public image host');const r=await fetch(photo.url,{redirect:'error',signal:AbortSignal.timeout(10000)});if(!r.ok||!r.headers.get('content-type')?.startsWith('image/'))throw Error('Not a directly available image');const chunks=[];let size=0;for await(const chunk of r.body){size+=chunk.length;if(size>5*1024*1024)throw Error('Image too large');chunks.push(chunk);}await writeFile(out+'/'+file,Buffer.concat(chunks));}return {id:p.id,name:p.name,url:photo.url,sourceUrl:photo.sourceUrl,file};}catch(e){return{id:p.id,name:p.name,url:photo.url,error:e.message};}}
+for(let i=0;i<places.length;i+=4){results.push(...await Promise.all(places.slice(i,i+4).map(inspect)));await writeFile(out+'/manifest.json',JSON.stringify(results,null,2));}
+console.log({candidates:results.length,downloaded:results.filter(x=>x.file).length});

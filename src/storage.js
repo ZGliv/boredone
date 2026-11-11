@@ -1,3 +1,4 @@
+import {DRAFT_PREFIX, validateDraft} from "./drafts.js";
 import {
   blankLibrary,
   validateOuting,
@@ -8,45 +9,43 @@ import {
 } from "./model";
 let dbPromise;
 function openDb() {
-  if (!dbPromise)
-    dbPromise = new Promise((resolve, reject) => {
-      if (!globalThis.indexedDB) {
-        reject(
-          new Error(
-            "This browser cannot store outings. Try a regular browser window with storage enabled.",
-          ),
-        );
-        return;
-      }
-      const req = indexedDB.open("boredone-private-journal", 1);
-      req.onupgradeneeded = () => req.result.createObjectStore("library");
-      req.onerror = () =>
-        reject(
-          new Error(
-            "Could not open your journal. Your browser may have storage disabled.",
-          ),
-        );
-      req.onblocked = () =>
-        reject(
-          new Error(
-            "Close other Boredone tabs and reload to open your journal.",
-          ),
-        );
-      req.onsuccess = () => {
-        req.result.onversionchange = () => req.result.close();
-        resolve(req.result);
-      };
-    });
-  return dbPromise;
+  if (dbPromise) return dbPromise;
+  let failed = false;
+  const attempt = new Promise((resolve, reject) => {
+    const fail = message => { failed = true; reject(new Error(message)); };
+    if (!globalThis.indexedDB) {
+      fail("This browser cannot store outings. Try a regular browser window with storage enabled.");
+      return;
+    }
+    const req = indexedDB.open("boredone-private-journal", 1);
+    req.onupgradeneeded = () => req.result.createObjectStore("library");
+    req.onerror = () => fail("Could not open your journal. Your browser may have storage disabled.");
+    req.onblocked = () => fail("Close other Boredone tabs and reload to open your journal.");
+    req.onsuccess = () => {
+      const db = req.result;
+      // A blocked open may succeed after its caller has already retried.
+      if (failed) { db.close(); return; }
+      const clear = () => { if (dbPromise === attempt) dbPromise = undefined; };
+      db.onversionchange = () => { db.close(); clear(); };
+      db.onclose = clear;
+      resolve(db);
+    };
+  });
+  dbPromise = attempt;
+  attempt.catch(() => { if (dbPromise === attempt) dbPromise = undefined; });
+  return attempt;
 }
 export async function readLibrary() {
   const db = await openDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction("library", "readonly"),
       req = tx.objectStore("library").get("current");
+    let loaded;
+    tx.oncomplete = () => resolve(loaded);
+    tx.onabort = () => reject(new Error("Could not read your saved outings. Your journal has not been changed. Try reloading it."));
     req.onsuccess = () => {
       const data = req.result;
-      if (!data) return resolve(blankLibrary());
+      if (!data) { loaded = blankLibrary(); return; }
       try {
         if (
           data.version !== VERSION ||
@@ -56,7 +55,7 @@ export async function readLibrary() {
         )
           throw new Error();
         data.outings.forEach(validateOuting);
-        resolve(data);
+        loaded = data;
       } catch {
         reject(
           new Error(
@@ -68,7 +67,7 @@ export async function readLibrary() {
     req.onerror = () => reject(new Error("Could not read your saved outings."));
   });
 }
-export async function writeLibrary(outings, revision) {
+export async function writeLibrary(outings, revision, draftId, draftStamp) {
   if (outings.length > MAX_OUTINGS)
     throw new Error(
       "Your journal supports 500 outings. Export before making space.",
@@ -98,17 +97,25 @@ export async function writeLibrary(outings, revision) {
       next = { version: VERSION, revision: revision + 1, outings };
       try {
         store.put(next, "current");
+        if(draftId){
+          const draft=store.get(DRAFT_PREFIX+draftId);
+          draft.onsuccess=()=>{if(draft.result?.savedAt===draftStamp)store.delete(DRAFT_PREFIX+draftId);};
+        }
       } catch (e) {
         writeError = e;
         tx.abort();
       }
     };
     tx.oncomplete = () => {
-      if (typeof BroadcastChannel !== "undefined") {
-        const c = new BroadcastChannel("boredone-journal");
-        c.postMessage("changed");
-        c.close();
-      }
+      // Tab notification is best effort; the transaction is already committed.
+      let channel;
+      try {
+        if (typeof BroadcastChannel !== "undefined") {
+          channel = new BroadcastChannel("boredone-journal");
+          channel.postMessage("changed");
+        }
+      } catch { /* A restricted tab must still report its successful save. */ }
+      finally { try { channel?.close(); } catch {} }
       resolve(next);
     };
     tx.onabort = () =>
@@ -163,4 +170,43 @@ export async function resizePhoto(file) {
   } finally {
     URL.revokeObjectURL(url);
   }
+}
+
+// Drafts share the existing database, but never replace the committed library.
+export async function readDrafts() {
+  const db=await openDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction('library','readonly');
+    const req=tx.objectStore('library').getAll(IDBKeyRange.bound(DRAFT_PREFIX,DRAFT_PREFIX+'\uffff'));
+    let records;
+    req.onsuccess=()=>{try{records=req.result.map(validateDraft).sort((a,b)=>b.savedAt.localeCompare(a.savedAt));}catch(e){reject(e);}};
+    tx.oncomplete=()=>resolve(records);
+    tx.onabort=()=>reject(Error('Couldn’t read unfinished outings. Your saved journal is unchanged.'));
+  });
+}
+export async function writeDraft(record) {
+  const safe=validateDraft(record),db=await openDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction('library','readwrite'),store=tx.objectStore('library');
+    let error;
+    const req=store.getAll(IDBKeyRange.bound(DRAFT_PREFIX,DRAFT_PREFIX+'\uffff'));
+    req.onsuccess=()=>{
+      const existing=req.result.find(r=>r.id===safe.id);
+      if(existing && existing.savedAt!==record.previousSavedAt){error=Error('This draft changed in another tab. Keep this tab open to save your version as a visit.');tx.abort();return;}
+      const others=req.result.filter(r=>r.id!==safe.id);
+      if(others.length>=10 || new Blob([JSON.stringify([...others,safe])]).size>MAX_BACKUP_BYTES){error=Error('Unfinished outings are full. Save or discard an earlier draft to make room.');tx.abort();return;}
+      store.put(safe,DRAFT_PREFIX+safe.id);
+    };
+    tx.oncomplete=()=>resolve(safe);
+    tx.onabort=()=>reject(error||Error('Draft couldn’t be saved on this device. Keep this tab open and try saving the visit.'));
+    tx.onerror=()=>{};
+  });
+}
+export async function deleteDraft(id, expectedStamp) {
+  const db=await openDb();
+  return new Promise((resolve,reject)=>{
+    const tx=db.transaction('library','readwrite'),store=tx.objectStore('library'),req=store.get(DRAFT_PREFIX+id);
+    req.onsuccess=()=>{if(req.result && req.result.savedAt!==expectedStamp){tx.abort();return;}store.delete(DRAFT_PREFIX+id);};
+    tx.oncomplete=()=>resolve();tx.onabort=()=>reject(Error('Couldn’t discard the draft. Try again.'));
+  });
 }

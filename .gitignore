@@ -6,3 +6,9 @@ dist/
 output/playwright/
 .playwright-cli/
 .vercel
+
+# Local Supabase connection metadata
+/supabase/.temp/
+
+# Local logs, screenshots and audit evidence (2+ GB)
+output/

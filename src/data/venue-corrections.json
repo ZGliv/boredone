@@ -1,0 +1,636 @@
+[
+  {
+    "names": [
+      "Hard Rock Cafe"
+    ],
+    "lat": 40.43397,
+    "lng": -80.00491,
+    "source": "https://cafe.hardrock.com/pittsburgh/",
+    "reason": "Pittsburgh location closed February 2025",
+    "checkedAt": "2026-10-27"
+  },
+  {
+    "names": [
+      "Double Wide Grill"
+    ],
+    "lat": 40.42856,
+    "lng": -79.97131,
+    "source": "https://www.wtae.com/article/pittsburgh-spork-pit-double-wide-grill-south-side/60818971",
+    "reason": "Replaced by Spork Pit; successor closed in May 2024",
+    "checkedAt": "2026-10-27"
+  },
+  {
+    "names": [
+      "Pickle Barrel",
+      "The Pickle Barrel"
+    ],
+    "lat": 40.42895,
+    "lng": -79.98519,
+    "source": "https://www.wpxi.com/news/diner-owner-helps-south-side-restaurant-rebuild-af/201440697/",
+    "reason": "South Side site destroyed by fire; operation relocated in 2011",
+    "checkedAt": "2026-10-27"
+  },
+  {
+    "names": [
+      "Hemingway's",
+      "Hemingway's Cafe"
+    ],
+    "lat": 40.44242,
+    "lng": -79.95641,
+    "source": "https://www.wtae.com/article/customers-final-day-hemingways-cafe-pittsburgh-may-2026/71196601",
+    "reason": "Closed May 3, 2026",
+    "checkedAt": "2026-10-27"
+  },
+  {
+    "names": [
+      "Fuel and Fuddle",
+      "Fuel & Fuddle"
+    ],
+    "lat": 40.4411,
+    "lng": -79.9567,
+    "source": "https://www.wtae.com/article/fuel-and-fuddle-restaurant-closing-oakland/43852180",
+    "reason": "Closed in 2023",
+    "checkedAt": "2026-10-27"
+  },
+  {
+    "names": [
+      "T\u00e4k\u014d"
+    ],
+    "lat": 40.44230117376574,
+    "lng": -80.00211417675018,
+    "source": "https://takopgh.com/",
+    "reason": "Official site says restaurant dining temporarily closed; recheck before returning to discovery",
+    "checkedAt": "2026-10-28"
+  },
+  {
+    "names": [
+      "Onion Maiden"
+    ],
+    "lat": 40.42188078145716,
+    "lng": -79.99592900276184,
+    "source": "https://www.onionmaiden.com/",
+    "reason": "Official site says temporarily closed; pop-ups do not establish normal restaurant service",
+    "checkedAt": "2026-10-28"
+  },
+  {
+    "names": [
+      "The Vault Taproom"
+    ],
+    "lat": 40.42891285828023,
+    "lng": -79.98423457145691,
+    "source": "https://www.wpxi.com/news/local/vault-closes-carson-former-beehive-space/5R2INCDITNEGRL2QPGGSD7SVAI/",
+    "reason": "Closed permanently in August 2022",
+    "checkedAt": "2026-10-28"
+  },
+  {
+    "names": [
+      "Leon's Caribbean Food"
+    ],
+    "lat": 40.42191345250342,
+    "lng": -79.99283373355865,
+    "source": "https://www.wtae.com/article/leons-caribbean-restaurant-no-longer-operating-pittsburghs-allentown/71719082",
+    "reason": "Allentown restaurant location closed in 2026",
+    "checkedAt": "2026-10-28"
+  },
+  {
+    "names": [
+      "Sammy's Famous Corned Beef"
+    ],
+    "lat": 40.443105449393045,
+    "lng": -79.99792456626892,
+    "source": "https://www.wpxi.com/news/local/popular-pittsburgh-sandwich-shop-closes-after-35-years/KJWPXYP5PZD45IOVCGXYGQSQLU/",
+    "reason": "Liberty Avenue restaurant closed March 2022",
+    "checkedAt": "2026-10-28"
+  },
+  {
+    "names": [
+      "Mandarin Gourmet"
+    ],
+    "lat": 40.4392187085208,
+    "lng": -80.00156700611115,
+    "source": "https://www.cbsnews.com/pittsburgh/news/mandarin-gourmet-closing-pittsburgh-location/",
+    "reason": "Downtown restaurant closed in 2023",
+    "checkedAt": "2026-10-28"
+  },
+  {
+    "names": [
+      "Pork & Beans"
+    ],
+    "lat": 40.44304421047053,
+    "lng": -80.00244677066803,
+    "source": "https://www.pittsburghmagazine.com/pittsburghs-pork-beans-closes-for-good/",
+    "reason": "Closed permanently in 2020",
+    "checkedAt": "2026-10-28"
+  },
+  {
+    "names": [
+      "Cioppino Restaurant & Cigar Bar"
+    ],
+    "lat": 40.45414795621792,
+    "lng": -79.98281836509705,
+    "source": "https://www.wpxi.com/news/business/cioppino-osteria-2350-strip-district-close-years-end/F7PLWHFAIVA2LJB4GAWXGW37PY/",
+    "reason": "Closed December 31, 2024",
+    "checkedAt": "2026-10-28"
+  },
+  {
+    "names": [
+      "Osteria 2350"
+    ],
+    "lat": 40.454327560556095,
+    "lng": -79.98254477977753,
+    "source": "https://www.wpxi.com/news/business/cioppino-osteria-2350-strip-district-close-years-end/F7PLWHFAIVA2LJB4GAWXGW37PY/",
+    "reason": "Closed December 31, 2024",
+    "checkedAt": "2026-10-28"
+  },
+  {
+    "names": [
+      "Sullivan's Steakhouse"
+    ],
+    "lat": 40.4415785422793,
+    "lng": -79.99476492404938,
+    "source": "https://www.wpxi.com/news/local/sullivans-us-steel-tower-location-closed-indefinitely/LLLYXH2VJRFZRJKOPQYOVTLQ2U/",
+    "reason": "US Steel Tower location closed indefinitely in 2025",
+    "checkedAt": "2026-10-28"
+  },
+  {
+    "names": [
+      "Bae Bae's Kitchen"
+    ],
+    "lat": 40.44353820285528,
+    "lng": -79.996138215065,
+    "source": "https://www.wpxi.com/news/local/bae-baes-kitchen-downtown-pittsburgh-close-restructure/VBBHE7HHQBAD7IDNP6CI52MLBQ/",
+    "reason": "Downtown restaurant closed for restructuring in February 2025; recheck before restoring",
+    "checkedAt": "2026-10-28"
+  },
+  {
+    "names": [
+      "Denis Theatre",
+      "Denis Theater"
+    ],
+    "lat": 40.38091106376987,
+    "lng": -80.04417657852173,
+    "source": "https://www.thedenistheatre.org/newsletter-archive/the-denis-theatre-deep-focus-march-2025",
+    "reason": "Theatre is closed awaiting restoration and reopening; prior website redirects to an unrelated site",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Jolina's Mediterranean Cuisine"
+    ],
+    "lat": 40.39215,
+    "lng": -80.01726,
+    "source": "https://wanderlog.com/place/details/3963858/jolinas-mediterranean-cuisine",
+    "reason": "Brookline location reported permanently closed; business website advertises Jolina\u2019s 2 on Fifth Avenue",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Forsythe Miniature Golf"
+    ],
+    "lat": 40.40518,
+    "lng": -80.07532,
+    "source": "https://www.forsytheminiaturegolf.com/",
+    "reason": "Closed for the 2026 season; owner expects reopening in late April 2027",
+    "checkedAt": "2026-10-29",
+    "expiresAt": "2027-05-01T00:00:00-04:00"
+  },
+  {
+    "names": [
+      "Sly Fox Taproom at the Point"
+    ],
+    "lat": 40.44086,
+    "lng": -80.00609,
+    "source": "https://breweriesinpa.com/sly-fox-to-close-pittsburgh-taphouse-august-15th/",
+    "reason": "Downtown taproom closed August 15, 2026",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Scarpino"
+    ],
+    "lat": 40.44432,
+    "lng": -79.99573,
+    "source": "https://www.tripadvisor.com/Restaurant_Review-g53449-d23597573-Reviews-Scarpino-Pittsburgh_Pennsylvania.html",
+    "reason": "Location reported closed, corroborated by customer reports",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "The Standard - Market & Pint House",
+      "The Standard Market & Pint House"
+    ],
+    "lat": 40.44436,
+    "lng": -79.99642,
+    "source": "https://untappd.com/v/the-standard-market-pint-house/9637297",
+    "reason": "Location reported permanently closed",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "De Fer Coffee & Tea"
+    ],
+    "lat": 40.44116,
+    "lng": -80.00237,
+    "source": "https://dailycoffeenews.com/2024/09/11/the-boredom-set-excites-pittsburgh-with-two-bars-and-a-roastery/",
+    "reason": "Market Street coffee counter replaced by The Boredom Set",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Nakama",
+      "Nakama Japanese Steakhouse"
+    ],
+    "lat": 40.42906,
+    "lng": -79.98223,
+    "source": "https://www.cbsnews.com/pittsburgh/news/pittsburgh-south-side-vacant-store-fronts/",
+    "reason": "South Side location closed in 2025",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Bier's Pub"
+    ],
+    "lat": 40.45208,
+    "lng": -80.01674,
+    "source": "https://www.wpxi.com/news/local/biers-pub-war-streets-brewing-closing-new-pub-take-its-place/EF4QNUZP7NE4HKWIF5FS4MIRE4/",
+    "reason": "Bier\u2019s Pub closed in 2022",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Bado's Pizza Grill and Ale House",
+      "Bado's Pizza Grill & Ale House"
+    ],
+    "lat": 40.38849,
+    "lng": -80.04973,
+    "source": "https://lebomag.com/new-pizzeria-brings-a-taste-of-brooklyn-to-mt-lebanon/",
+    "reason": "Former Bado\u2019s space replaced by F&F Pizzeria",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "io Deli"
+    ],
+    "lat": 40.38879,
+    "lng": -80.04996,
+    "source": "https://lebomag.com/beverly-road-shuffle/",
+    "reason": "Closed in 2024 and space became Iovino\u2019s Neighborhood Brasserie",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Cafe io",
+      "Caf\u00e9 io"
+    ],
+    "lat": 40.38887,
+    "lng": -80.04981,
+    "source": "https://lebomag.com/beverly-road-shuffle/",
+    "reason": "Restaurant consolidated into Iovino\u2019s at 306 Beverly Road",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Insurrection AleWorks"
+    ],
+    "lat": 40.39246,
+    "lng": -80.08753,
+    "source": "https://breweriesinpa.com/should-old-acquaintance-be-forgot-2024-breweries-in-pa-cemetery/",
+    "reason": "Heidelberg brewery closed in 2024",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Cucina Vitale"
+    ],
+    "lat": 40.42748,
+    "lng": -79.96908,
+    "source": "https://www.wtae.com/article/cucina-vitale-restaurant-thanksgiving-meals-families-2025/69295097",
+    "reason": "Relocated from South Side to Green Tree in 2024",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "The Carlton"
+    ],
+    "lat": 40.43927,
+    "lng": -79.99589,
+    "source": "https://www.cbsnews.com/pittsburgh/news/pittsburgh-the-carlton-restaurant-closing/",
+    "reason": "Downtown restaurant closed in 2021",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Carson City Saloon"
+    ],
+    "lat": 40.42897,
+    "lng": -79.98401,
+    "source": "https://www.yahoo.com/news/neighbors-input-bring-business-back-041943989.html",
+    "reason": "South Side saloon permanently closed",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Threadbare Cider House & Meadery",
+      "Threadbare Cider House",
+      "Threadbare Cider House and Meadery"
+    ],
+    "lat": 40.46009,
+    "lng": -79.9889,
+    "source": "https://threadbarecider.com/our-ciders/",
+    "reason": "Cider house is open for private events only",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "412 Brewery"
+    ],
+    "lat": 40.45192,
+    "lng": -80.01597,
+    "source": "https://www.discovertheburgh.com/pittsburgh-craft-beer/",
+    "reason": "Former taproom replaced by Late Addition Brewing",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Beehive Coffee",
+      "BeehIve Coffee"
+    ],
+    "lat": 40.42892,
+    "lng": -79.98428,
+    "source": "https://www.wesanews.org/arts-sports-culture/2018-11-16/patrons-prepare-to-say-farewell-to-the-iconic-beehive-coffeehouse",
+    "reason": "South Side coffeehouse closed in 2018",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "COBRA",
+      "Cobra Lounge"
+    ],
+    "lat": 40.46418,
+    "lng": -79.95302,
+    "source": "https://ra.co/clubs/180810",
+    "reason": "Restaurant and nightclub closed in 2026",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Zorros"
+    ],
+    "lat": 40.39309,
+    "lng": -80.04595,
+    "source": "https://lebomag.com/bird-on-the-run-opens-next-week/",
+    "reason": "Zorros was replaced at this address by Bird on the Run in 2023",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Linden Grove"
+    ],
+    "lat": 40.36753,
+    "lng": -80.01432,
+    "source": "https://www.audacy.com/kdkaradio/news/local/pittsburgh-asian-restaurant",
+    "reason": "Closed in 2025; Self Chef opened at the same address in 2026",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Bakn"
+    ],
+    "lat": 40.40976,
+    "lng": -80.08363,
+    "source": "https://www.chainepittsburgh.org/totallygroovypicnic",
+    "reason": "Permanently closed during the pandemic",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "BLVD",
+      "BLVD Pub and Kitchen"
+    ],
+    "lat": 40.27825697839498,
+    "lng": -80.16190946102142,
+    "source": "https://www.restaurantji.com/pa/canonsburg/blvd-pub-and-kitchen-/",
+    "reason": "Closed; Bubba\u2019s now operates at the same arena",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Atarashi Sushi"
+    ],
+    "lat": 40.34810180333821,
+    "lng": -80.05406320095062,
+    "source": "https://www.pokesushipittsburgh.com/",
+    "reason": "Poke Sushi is the current business at this address; former Atarashi listing is outdated",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Silk Road Hibachi and Sushi Bar"
+    ],
+    "lat": 40.35935,
+    "lng": -80.00215,
+    "source": "https://www.silkroadsushiandsteakhouse.com/",
+    "reason": "Duplicate of Silk Road Gourmet Chinese Restaurant, whose own site includes sushi and hibachi",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Hummus Pittsburgh"
+    ],
+    "lat": 40.38906,
+    "lng": -80.04204,
+    "source": "https://www.hummuspgh.com/contact-us",
+    "reason": "Food truck and catering business; listed address is a mailing address rather than a confirmed public restaurant",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Primanti Bros."
+    ],
+    "lat": 40.4388,
+    "lng": -79.99858,
+    "source": "https://www.yellowpages.com/pittsburgh-pa/mip/primanti-bros-481577887",
+    "reason": "Former Cherry Way location is closed; Market Square location remains",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Union Standard"
+    ],
+    "lat": 40.4403,
+    "lng": -79.99717,
+    "source": "https://goodfoodpittsburgh.com/pittsburgh-restaurants-that-closed-during-the-pandemic-so-far/",
+    "reason": "Restaurant closed permanently in 2020",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Barcadia"
+    ],
+    "lat": 40.44112,
+    "lng": -80.00288,
+    "source": "https://www.wtae.com/article/police-investigating-after-man-shot-in-market-square/69871081",
+    "reason": "Former Market Square arcade bar is closed",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Slider Vibes"
+    ],
+    "lat": 40.44122,
+    "lng": -80.00281,
+    "source": "https://www.restaurantji.com/pa/pittsburgh/slider-vibes-/",
+    "reason": "Market Square restaurant closed",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "AMC CLASSIC Mount Lebanon 6"
+    ],
+    "lat": 40.35713,
+    "lng": -80.05213,
+    "source": "https://www.wtae.com/article/amc-theater-closing-mt-lebanon-galleria/74209051",
+    "reason": "Galleria cinema closed permanently after October 25, 2026; South Hills Village cinema remains open",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Bravo",
+      "Bravo Italian Kitchen"
+    ],
+    "lat": 40.3564,
+    "lng": -80.05105,
+    "source": "https://www.wpxi.com/news/local/now-what-pittsburgh-area-restaurant-shuts-down-abruptly-shocking-employees/F2RXD42LLBEGVAIOZN23P4PG7E/",
+    "reason": "Galleria of Mt. Lebanon restaurant closed permanently in September 2026",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Baxter's R\u2022Cade",
+      "Baxter's R-Cade",
+      "Baxter's Arcade"
+    ],
+    "lat": 40.2755485,
+    "lng": -80.1670322,
+    "source": "https://www.wtae.com/article/baxters-rcade-in-canonsburg-washington-county-permanently-closes/71788416",
+    "reason": "Venue announced permanent closure in June 2026",
+    "checkedAt": "2026-10-30"
+  },
+  {
+    "names": [
+      "Wild Rosemary Bistro",
+      "Wild Rosemary"
+    ],
+    "lat": 40.36198,
+    "lng": -80.0935,
+    "source": "https://www.discovertheburgh.com/wild-rosemary-review/",
+    "reason": "Closed in October 2025; recheck before restoring",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Atarashi Sushi",
+      "Atarashi",
+      "Sushi Atarashi"
+    ],
+    "lat": 40.34810180333821,
+    "lng": -80.05406320095062,
+    "source": "https://pokesushipittsburgh.com/",
+    "reason": "The location is now Poke Sushi; preserve saved Atarashi outings",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Oya Sushi",
+      "Oya Sushi and Korean Grill",
+      "Oya Sushi & Korean Grill"
+    ],
+    "lat": 40.36947643602551,
+    "lng": -80.03513753414154,
+    "source": "https://www.pennsylvasia.com/search?max-results=10&updated-max=2026-03-24T09%3A09%3A00-04%3A00",
+    "reason": "Former location replaced by Krunchy Bird in 2026",
+    "checkedAt": "2026-10-29"
+  },
+  {
+    "names": [
+      "Hank's Dogs",
+      "Hank's Hotdogs Too",
+      "Hank's Too"
+    ],
+    "lat": 40.39280134497017,
+    "lng": -80.01843810081482,
+    "source": "https://www.brooklinetogether.org/spotlight",
+    "reason": "Pepito\u2019s Place now operates in the former Hank\u2019s Too space at 919 Brookline Boulevard; preserve saved Hank\u2019s outings",
+    "checkedAt": "2026-10-30"
+  },
+  {
+    "names": [
+      "Big Shot Bob's",
+      "Big Shot Bob's House of Wings"
+    ],
+    "lat": 40.405437,
+    "lng": -80.030031,
+    "source": "https://bigshotbobs.com/",
+    "reason": "The Beechview/Brookline branch now lists 109 Brookline Boulevard; the former 2102 Broadway Avenue record is stale. Preserve saved outings.",
+    "checkedAt": "2026-10-30"
+  },
+  {
+    "names": [
+      "Nick's Pizza"
+    ],
+    "lat": 40.36951730662773,
+    "lng": -80.03483712673187,
+    "source": "https://restaurantguru.com/Nicks-Pizza-Pittsburgh",
+    "evidence": [
+      "https://www.restaurantji.com/pa/pittsburgh/nicks-pizza-/",
+      "https://www.commercialsearch.com/commercial-property/us/pa/pittsburgh/329-mt-lebanon-blvd/"
+    ],
+    "reason": "Reported permanently closed; 329 Mount Lebanon Boulevard full building listed for immediate lease in September 2026. Preserve saved outings.",
+    "checkedAt": "2026-10-30"
+  },
+  {
+    "names": [
+      "Kings Family Restaurant"
+    ],
+    "lat": 40.25635399,
+    "lng": -80.15125561,
+    "source": "https://www.restaurantji.com/pa/canonsburg/kings-family-restaurants-/",
+    "reason": "Canonsburg location closed in April 2025",
+    "checkedAt": "2026-10-30"
+  },
+  {
+    "names": [
+      "Bella Sera"
+    ],
+    "lat": 40.28094985,
+    "lng": -80.15333176,
+    "source": "https://www.bellaserapgh.com/",
+    "reason": "Private wedding and event venue, not a public restaurant",
+    "checkedAt": "2026-10-30"
+  },
+  {
+    "names": [
+      "Lucha Street Tacos"
+    ],
+    "lat": 40.34414006866615,
+    "lng": -80.11512100696564,
+    "source": "https://restaurantguru.com/Lucha-Street-Tacos-Bridgeville",
+    "evidence": [
+      "https://www.ubereats.com/store/lucha-street-tacos/oE96jFImXHagIodLPte3dg",
+      "https://order.online/store/OasisRestaurant-27685665",
+      "https://www.coldwellbankerhomes.com/pa/south-fayette/3181-washington-pike/pid_71164547/"
+    ],
+    "reason": "South Fayette branch reported permanently closed; subsequent restaurant at this address and property listed for sale. Preserve saved outings.",
+    "checkedAt": "2026-10-30"
+  },
+  {
+    "names": [
+      "Rooster's Roadhouse"
+    ],
+    "lat": 40.378880108289195,
+    "lng": -80.14638483524323,
+    "source": "https://www.wpxi.com/news/local/collier-township-restaurant-not-being-rebuilt-after-massive-fire/M6CKCPVO65HXRGZILQK5W56BU4/",
+    "reason": "Collier Township restaurant destroyed by fire and owner said it would not be rebuilt. Preserve saved outings.",
+    "checkedAt": "2026-10-30"
+  }
+]

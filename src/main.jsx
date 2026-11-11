@@ -1,9 +1,20 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import Album from "./Album";
+import MemoryTimeline from "./MemoryTimeline";
+import {memoryOptions} from "./memoryFilters";
 import Editor, { Modal } from "./Editor";
-import Map from "./Map";
+import ExploreWorld from "./ExploreWorld";
+import { journalPlaces, placeIcon } from "./exploration";
+import { discoveryKey, readDiscovery, saveDiscovery, clearDiscoveryCache } from "./discoveryCache";
+import { preloadedDiscovery, bundledArea, enrichBundledArea, CORRIDOR_AREA } from "./preloaded";
+import {mergeEditorial} from "./recommendations";
+import { findPlaces, findEditorial } from "./findPlaces";
+import { sampleResult } from "./sample";
 import { findCities } from "./cities";
-import { readLibrary, writeLibrary } from "./storage";
+import { readLibrary, writeLibrary, readDrafts, writeDraft, deleteDraft } from "./storage";
+import JournalRoot from "./JournalRoot";
+import AccountPanel,{syncLabel} from "./AccountPanel";
 import {
   backupPayload,
   blankLibrary,
@@ -13,8 +24,17 @@ import {
   MAX_BACKUP_BYTES,
   mergeOutings,
   validateBackup,
+  validateOuting,
 } from "./model";
 import "./styles.css";
+import "./world.css";
+import "./theme.css";
+import useTheme from "./useTheme";
+
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").then(() => navigator.serviceWorker.ready)
+    .then(registration => registration.active?.postMessage("warm-guide-photos")).catch(() => {});
+}
 
 const START_CITY = {
   name: "Pittsburgh",
@@ -33,13 +53,13 @@ function pageFromHash() {
     ? value
     : "find";
 }
-function download(data) {
+function download(data,limit=MAX_BACKUP_BYTES) {
   const blob = new Blob([JSON.stringify(data, null, 2)], {
     type: "application/json",
   });
-  if (blob.size > MAX_BACKUP_BYTES)
+  if (blob.size > limit)
     throw new Error(
-      "This backup exceeds 50 MB. Remove unused photos before exporting.",
+      `This backup exceeds ${limit/1024/1024} MB. Your journal has not changed.`,
     );
   const url = URL.createObjectURL(blob),
     a = document.createElement("a");
@@ -51,20 +71,37 @@ function download(data) {
 function directions(place) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.lat != null ? `${place.lat},${place.lng}` : place.name + " " + place.address)}`;
 }
-function App() {
+const guestStore={read:readLibrary,save:(outings,revision,{draftId,draftStamp}={})=>writeLibrary(outings,revision,draftId,draftStamp),readDrafts,writeDraft,deleteDraft,channelName:"boredone-journal",backup:backupPayload,validateBackup,backupLimit:MAX_BACKUP_BYTES,validateOuting:value=>validateOuting(value)};
+function App({store=guestStore,account=null,accountError=""}) {
+  const [theme,toggleTheme]=useTheme();
+  const [drafts,setDrafts]=useState([]),[draftError,setDraftError]=useState('');
+  async function refreshDrafts(){try{setDrafts(await store.readDrafts());setDraftError('');}catch(e){setDraftError(e.message);}}
+
+  const [iconStyle, setIconStyle] = useState(() => {
+    try { return localStorage.getItem("boredone-icon-style") === "solid" ? "solid" : "line"; } catch { return "line"; }
+  });
+  useEffect(() => {
+    document.documentElement.dataset.iconStyle = iconStyle;
+    try { localStorage.setItem("boredone-icon-style", iconStyle); } catch { /* Optional appearance preference. */ }
+  }, [iconStyle]);
+  const [restoredDiscovery] = useState(() => preloadedDiscovery(readDiscovery()));
   const [page, setPage] = useState(pageFromHash),
-    [library, setLibrary] = useState(blankLibrary),
+    [savedLibrary, setSavedLibrary] = useState(blankLibrary),
+    [demoLibrary, setDemoLibrary] = useState(blankLibrary),
+    [demoMode, setDemoMode] = useState(false),
     [ready, setReady] = useState(false),
     [storageError, setStorageError] = useState(""),
     [message, setMessage] = useState("");
-  const [city, setCity] = useState(START_CITY),
-    [cityText, setCityText] = useState("Pittsburgh"),
+  const [city, setCity] = useState(restoredDiscovery?.area || START_CITY),
+    [cityText, setCityText] = useState(restoredDiscovery?.area.name || "Pittsburgh"),
     [cityMatches, setCityMatches] = useState(null),
     [cityBusy, setCityBusy] = useState(false),
+    [cityError, setCityError] = useState(""),
     [category, setCategory] = useState("all"),
-    [radius, setRadius] = useState("3000"),
-    [result, setResult] = useState(null),
+    [radius, setRadius] = useState(String(restoredDiscovery?.result.radius || 3000)),
+    [result, setResult] = useState(restoredDiscovery?.result || null),
     [searchBusy, setSearchBusy] = useState(false),
+    [searchPhase, setSearchPhase] = useState(""),
     [searchError, setSearchError] = useState(""),
     [selected, setSelected] = useState(null),
     [editor, setEditor] = useState(null),
@@ -73,7 +110,15 @@ function App() {
     [query, setQuery] = useState(""),
     [geoBusy, setGeoBusy] = useState(false),
     [memoryDetail, setMemoryDetail] = useState(null),
-    [mapVisible, setMapVisible] = useState(true);
+    [mapVisible, setMapVisible] = useState(true),
+    [mapLayer, setMapLayer] = useState("discover");
+  useEffect(() => { if (memoryDetail) document.getElementById("memory-heading")?.focus(); }, [memoryDetail]);
+  const library = demoMode ? demoLibrary : savedLibrary;
+  const canEdit = (ready || demoMode) && !account?.removal;
+  const setLibrary = demoMode ? setDemoLibrary : setSavedLibrary;
+  const memoryScroll = useRef(0);
+  function openMemory(outing) { memoryScroll.current = window.scrollY; setMemoryDetail(outing); window.scrollTo(0,0); }
+  function closeMemory() { setMemoryDetail(null); requestAnimationFrame(() => window.scrollTo(0,memoryScroll.current)); }
   const libraryRef = useRef(library),
     request = useRef(0),
     searchAbort = useRef(null),
@@ -81,8 +126,8 @@ function App() {
   libraryRef.current = library;
   async function load() {
     try {
-      const data = await readLibrary();
-      setLibrary(data);
+      const data = await store.read();
+      setSavedLibrary(previous=>data.revision>=previous.revision?data:previous);
       setReady(true);
       setStorageError("");
     } catch (e) {
@@ -90,23 +135,31 @@ function App() {
     }
   }
   useEffect(() => {
-    load();
-    const handler = () => setPage(pageFromHash());
+    load();refreshDrafts();
+    const handler = () => {const next=pageFromHash();setPage(next);if(next!=="memories")setMemoryDetail(null);setSelected(null);setQuery("");};
     window.addEventListener("hashchange", handler);
-    const channel =
-      typeof BroadcastChannel !== "undefined"
-        ? new BroadcastChannel("boredone-journal")
-        : null;
-    if (channel) channel.onmessage = load;
+    let channel;
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        channel = new BroadcastChannel(store.channelName);
+        channel.onmessage = () => {load();refreshDrafts();};
+      }
+    } catch { /* Storage still works when cross-tab messaging is restricted. */ }
+    const refresh = () => { if (document.visibilityState === "visible") {load();refreshDrafts();} };
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
     return () => {
       window.removeEventListener("hashchange", handler);
-      channel?.close();
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
+      try { channel?.close(); } catch {}
       searchAbort.current?.abort();
     };
   }, []);
+  useEffect(()=>{if(account?.refresh){load();refreshDrafts();}},[account?.refresh]);
   useEffect(() => {
     if (message) {
-      const timer = setTimeout(() => setMessage(""), 8000);
+      const timer = setTimeout(() => setMessage(""), 3000);
       return () => clearTimeout(timer);
     }
   }, [message]);
@@ -114,23 +167,28 @@ function App() {
     location.hash = next;
     setPage(next);
     setQuery("");
+    setSelected(null);
+    setMemoryDetail(null);
     window.scrollTo(0, 0);
   }
-  async function commit(outings) {
-    const next = await writeLibrary(outings, libraryRef.current.revision);
+  async function commit(outings, draftId, draftStamp) {
+    const next = demoMode
+      ? { ...libraryRef.current, outings, revision: libraryRef.current.revision + 1 }
+      : await store.save(outings, libraryRef.current.revision, {draftId,draftStamp});
     setLibrary(next);
     libraryRef.current = next;
     return next;
   }
-  async function saveOuting(outing, originalStamp, isNew) {
+  async function saveOuting(outing, originalStamp, isNew, draftId, draftStamp) {
     const current = libraryRef.current.outings,
       existing = current.find((x) => x.id === outing.id);
+    if (isNew && existing) throw new Error("This outing was already saved in another tab. Your draft is still here; reopen the saved memory before making further changes.");
     if (!isNew && (!existing || existing.updatedAt !== originalStamp))
       throw new Error(
         "This outing changed in another tab. Close this editor and open it again to see the latest version.",
       );
     if (
-      isNew &&
+      isNew && outing.status === "planned" &&
       current.some(
         (x) => x.status === "planned" && x.place.id === outing.place.id,
       )
@@ -141,17 +199,20 @@ function App() {
     await commit(
       existing
         ? current.map((o) => (o.id === outing.id ? outing : o))
-        : [outing, ...current],
+        : [outing, ...current], draftId, draftStamp,
     );
     setEditor(null);
     setMemoryDetail(null);
     setSelected(null);
     setMessage(
       outing.status === "visited"
-        ? "Memory saved in this browser."
+        ? (demoMode ? "Sample memory saved for this demo." : (account?.owner ? "Memory saved. Sync will continue when connected." : "Memory saved in this browser."))
         : "Your plan is saved.",
     );
-    navigate(outing.status === "visited" ? "memories" : "plans");
+    // Planning from the map should leave the explorer at their chosen view.
+    // Journal-page edits continue to return to the corresponding collection.
+    if (outing.status === "visited") { navigate("memories"); setMemoryDetail(outing); }
+    else if (page !== "find") navigate(outing.status === "visited" ? "memories" : "plans");
   }
   function addPlan(place) {
     const existing = library.outings.find(
@@ -190,6 +251,11 @@ function App() {
       },
     });
   }
+  function saveVisit(place) {
+    const outing = makeOuting(place);
+    setSelected(null);
+    setEditor({isNew:true,outing:{...outing,status:'visited',visitDate:localDate()}});
+  }
   function visit(outing) {
     setMemoryDetail(null);
     setEditor({
@@ -200,7 +266,7 @@ function App() {
   async function remove(outing) {
     if (
       !window.confirm(
-        `Delete “${outing.place.name}” and its saved photos from this browser? Export a backup first if you want to keep a copy.`,
+        `Delete “${outing.place.name}” and its saved photos ${account?.owner?'from your account and synced devices':'from this browser'}? Export a backup first if you want to keep a copy.`,
       )
     )
       return;
@@ -217,59 +283,102 @@ function App() {
   async function searchCities(e) {
     e.preventDefault();
     setCityBusy(true);
-    setSearchError("");
+    setCityMatches(null);
+    setCityError("");
     try {
       const matches = await findCities(cityText);
       setCityMatches(matches);
     } catch (e) {
-      setSearchError(e.message);
+      setCityError(e.message);
     } finally {
       setCityBusy(false);
     }
   }
-  async function searchPlaces(area = city) {
+  async function searchPlaces(area = city, force = false, offlineArea = false, requestedRadius = radius) {
+    if (demoMode) { setResult(sampleResult()); setMapLayer("discover"); setSelected(null); return; }
+    const key = discoveryKey(area, requestedRadius, "all");
+    const saved = readDiscovery(key) || (!navigator.onLine ? readDiscovery(discoveryKey(area, requestedRadius, category)) : null);
     const id = ++request.current;
     searchAbort.current?.abort();
     const controller = new AbortController();
     searchAbort.current = controller;
     setSearchBusy(true);
+    setMapLayer("discover");
+    setSelected(null);
     setSearchError("");
-    setResult(null);
+    if (saved) setResult(saved.result);
+    if (saved && ((!saved.result.stale && saved.result.poolVersion === 3) || !navigator.onLine) && !force) { setSearchBusy(false); return; }
     try {
-      const res = await fetch(
-        `/api/discover?${new URLSearchParams({ lat: area.lat, lng: area.lng, radius, category })}`,
-        { signal: controller.signal },
-      );
-      const data = await res.json();
-      if (!res.ok)
-        throw new Error(
-          data.error || "Search is unavailable. Try again in a moment.",
-        );
-      if (id === request.current)
-        setResult({ ...data, cityLabel: area.label, category });
+      const data = await findPlaces({ lat: area.lat, lng: area.lng, radius: requestedRadius, category: "all" }, {
+        signal: controller.signal, areaOnly: offlineArea,
+        onPhase: (phase) => { if (id === request.current) setSearchPhase(phase); },
+      });
+      if (id === request.current) {
+        let next = enrichBundledArea(area, {...data, cityLabel: area.label, cityName: area.name, category: "all", poolVersion: 3});
+        setResult(next);
+        saveDiscovery(area, next);
+        // The base guide is usable immediately; enrichment has its own deadline.
+        setSearchBusy(false);
+        setSearchPhase("");
+        try {
+          const editorial = await findEditorial({lat:area.lat,lng:area.lng,radius:requestedRadius,city:area.name}, {signal:controller.signal});
+          if (id === request.current) { next = {...next, places:mergeEditorial(next.places,editorial.places),editorialAt:editorial.fetchedAt}; setResult(next);saveDiscovery(area,next); }
+        } catch { /* Keep the usable base guide during enrichment outages. */ }
+      }
     } catch (e) {
-      if (e.name !== "AbortError" && id === request.current)
-        setSearchError(e.message);
+      if (e.name !== "AbortError" && id === request.current) {
+        setSearchError(e.name === "TimeoutError" ? "Search timed out. Your previously found places are still available; try again or narrow the area." : e.message);
+        setResult(previous => previous ? {...previous, stale:true} : previous);
+      }
     } finally {
-      if (id === request.current) setSearchBusy(false);
+      if (id === request.current) { setSearchBusy(false); setSearchPhase(""); }
     }
   }
-  function invalidateSearch() {
+  function enterDemo() {
+    invalidateSearch();
+    setDemoLibrary(blankLibrary());
+    setDemoMode(true);
+    setCategory("all");
+    setMapLayer("discover");
+    setResult(sampleResult());
+    setMessage("");
+    navigate("find");
+  }
+  function leaveDemo() {
+    setDemoMode(false);
+    setDemoLibrary(blankLibrary());
+    invalidateSearch();
+    setMapLayer("discover");
+    setCategory("all");
+    const saved = preloadedDiscovery(readDiscovery());
+    if (saved) { setResult(saved.result); setCity(saved.area); setCityText(saved.area.name); setCategory(saved.result.category); setRadius(String(saved.result.radius)); }
+    setMessage("");
+    navigate("find");
+  }
+  function invalidateSearch(preserveResults = false) {
+    setSelected(null);
     request.current++;
     searchAbort.current?.abort();
     setSearchBusy(false);
-    setResult(null);
+    if (!preserveResults) setResult(null);
     setSearchError("");
   }
   function chooseCity(area) {
+    setCategory("all");
+    setSelected(null);
+    setMapLayer("discover");
     request.current++;
     searchAbort.current?.abort();
     setSearchBusy(false);
+    setResult(bundledArea(area, radius));
     setCity(area);
     setCityText(area.name);
     setCityMatches(null);
-    setResult(null);
     setSearchError("");
+    searchPlaces(area);
+  }
+  function chooseCorridor() {
+    invalidateSearch();setMapLayer('discover');setCategory('all');setRadius('5000');setCity(CORRIDOR_AREA);setCityText(CORRIDOR_AREA.name);setCityMatches(null);const next=bundledArea(CORRIDOR_AREA,5000);setResult(next);saveDiscovery(CORRIDOR_AREA,next);
   }
   function geolocate() {
     if (!navigator.geolocation) {
@@ -300,8 +409,9 @@ function App() {
     );
   }
   async function exportJournal() {
+    if (demoMode) { setMessage("Leave the demo to export your real journal."); return; }
     try {
-      download(backupPayload(library));
+      download(store.backup(library),store.backupLimit);
       setMessage(
         "Backup download started. Keep it somewhere private; it includes your photos and notes.",
       );
@@ -310,13 +420,15 @@ function App() {
     }
   }
   async function importFile(event) {
+    if (demoMode) { event.target.value = ""; setMessage("Leave the demo to import into your real journal."); return; }
     const file = event.target.files[0];
     event.target.value = "";
     if (!file) return;
     try {
-      if (file.size > MAX_BACKUP_BYTES)
-        throw new Error("Choose a backup smaller than 50 MB.");
-      const incoming = validateBackup(JSON.parse(await file.text()));
+      if (file.size > store.backupLimit)
+        throw new Error(`Choose a backup smaller than ${store.backupLimit/1024/1024} MB.`);
+      const incoming = store.validateBackup(JSON.parse(await file.text()));
+      if(account?.owner){setImporting({incoming,count:incoming.length});return;}
       const preview = mergeOutings(libraryRef.current.outings, incoming);
       setImporting({
         incoming,
@@ -335,6 +447,10 @@ function App() {
   async function restore() {
     setImportBusy(true);
     try {
+      if(account?.owner){
+        const result=await store.importLegacy(importing.incoming,libraryRef.current.revision);
+        await load();setImporting(null);setStorageError('');setMessage(`Imported ${result.imported.added} outings. Different versions were kept as copies.`);return;
+      }
       const merged = mergeOutings(
         libraryRef.current.outings,
         importing.incoming,
@@ -366,18 +482,20 @@ function App() {
         b.updatedAt.localeCompare(a.updatedAt),
     );
   const filtered = (page === "plans" ? plans : memories).filter((o) =>
-    `${o.place.name} ${o.place.category} ${o.place.address} ${o.notes} ${o.with}`
+    `${o.place.name} ${o.place.category} ${o.place.address} ${o.notes} ${o.with} ${o.visitDate} ${displayDate(o.visitDate)}`
       .toLowerCase()
       .includes(query.toLowerCase()),
   );
-  const visiblePlaces = result?.places || [];
+  const visiblePlaces = useMemo(() => mapLayer === "discover"
+    ? (result?.places || [])
+    : journalPlaces(library.outings, mapLayer), [mapLayer, result, library.outings]);
   return (
     <>
-      <header className="app-header">
+      <header className={`app-header ${page==="find"?"explore-header":""}`}>
         <a className="brand" href="#find" onClick={() => navigate("find")}>
-          boredone<span>↗</span>
+          boredone
         </a>
-        <nav aria-label="Main navigation">
+        <nav aria-label="Main navigation" hidden={page==="find"}>
           {TABS.map(([id, label]) => (
             <button
               key={id}
@@ -395,15 +513,20 @@ function App() {
             </button>
           ))}
         </nav>
+        <div className="header-actions">
+        <button className="theme-toggle" onClick={toggleTheme} aria-label={theme==='dark'?'Switch to light mode':'Switch to dark mode'} title={theme==='dark'?'Light mode':'Dark mode'}><img src={`/world/icons/${theme==='dark'?'sun':'moon'}.svg`} alt=""/></button>
         <button
           className={`journal-button ${page === "settings" ? "active" : ""}`}
-          onClick={() => navigate("settings")}
-          aria-label="Journal settings and backup"
+          onClick={() => navigate(page==="find"?"plans":"settings")}
+          aria-label={page==="find"?"Saved outings":"Journal settings and backup"}
         >
-          Your journal <span>↗</span>
+          {page==="find"?<><img src="/world/icons/bookmark-simple.svg" alt=""/> {drafts.length?`Saved · ${drafts.length}`:"Saved"}</>:<>Your journal <span>↗</span></>}
         </button>
+        </div>
       </header>
-      <main className="main-shell">
+      <main className={`main-shell ${page === "find" ? "world-main" : ""}`}>
+        {demoMode && page !== "find" && <div className="demo-banner" role="status"><div><strong>You’re exploring a sample day.</strong><span>Fictional places. Plans and memories stay in this demo only and disappear when you leave or reload.</span></div><button className="secondary" onClick={leaveDemo}>Leave demo</button></div>}
+        {accountError&&<p className="notice error" role="alert">{accountError}</p>}
         {storageError && (
           <div className="notice error" role="alert">
             {storageError}
@@ -423,277 +546,27 @@ function App() {
             {message}
           </div>
         )}
-        {page === "find" && (
-          <>
-            <section className="page-intro">
-              <div>
-                <p className="eyebrow">Less scrolling. More living.</p>
-                <h1>
-                  Make a little
-                  <br />
-                  <span>room for fun.</span>
-                </h1>
-                <p>Find it. Do it. Remember.</p>
-              </div>
-              <div className="intro-note">
-                <strong>What sounds good today?</strong>
-                <p>
-                  A new corner of your city. A place you keep meaning to try.
-                  Something worth remembering.
-                </p>
-                <button
-                  className="text-button"
-                  onClick={() => manual()}
-                  disabled={!ready}
-                >
-                  Already have an idea? Add it ↗
-                </button>
-              </div>
-            </section>
-            <section className="discovery-panel" aria-label="Discover places">
-              <div className="search-toolbar">
-                <form className="city-search" onSubmit={searchCities}>
-                  <label htmlFor="city">City or town</label>
-                  <div>
-                    <input
-                      id="city"
-                      maxLength={120}
-                      value={cityText}
-                      onChange={(e) => setCityText(e.target.value)}
-                      placeholder="Search a city"
-                      required
-                    />
-                    <button
-                      type="submit"
-                      className="secondary"
-                      disabled={cityBusy}
-                    >
-                      {cityBusy ? "Finding…" : "Find city"}
-                    </button>
-                  </div>
-                </form>
-                <label>
-                  Within
-                  <select
-                    value={radius}
-                    onChange={(e) => {
-                      invalidateSearch();
-                      setRadius(e.target.value);
-                    }}
-                  >
-                    <option value="1500">1.5 km</option>
-                    <option value="3000">3 km</option>
-                    <option value="5000">5 km</option>
-                  </select>
-                </label>
-                <button
-                  className="secondary locate"
-                  disabled={geoBusy}
-                  onClick={geolocate}
-                >
-                  {geoBusy ? "Locating…" : "Use my area"}
-                </button>
-              </div>
-              {cityMatches && (
-                <div className="city-results">
-                  <strong>
-                    {cityMatches.length
-                      ? "Choose your city"
-                      : "No matching city found"}
-                  </strong>
-                  {cityMatches.map((match) => (
-                    <button
-                      className="city-result"
-                      key={match.id}
-                      onClick={() => chooseCity(match)}
-                    >
-                      {match.label}
-                      <span>↗</span>
-                    </button>
-                  ))}
-                  {!cityMatches.length && (
-                    <p>
-                      Try a larger nearby city, a country code, or your
-                      approximate location. This directory covers towns with
-                      about 15,000 residents or more.
-                    </p>
-                  )}
-                </div>
-              )}
-              <div className="category-row" aria-label="Activity categories">
-                {[
-                  ["all", "A little of everything"],
-                  ["outdoors", "Outside"],
-                  ["culture", "Arts & culture"],
-                  ["food", "Food & coffee"],
-                  ["play", "Something playful"],
-                ].map(([value, label]) => (
-                  <button
-                    className="chip"
-                    aria-pressed={category === value}
-                    key={value}
-                    onClick={() => {
-                      invalidateSearch();
-                      setCategory(value);
-                    }}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              <div className="search-bottom">
-                <p>
-                  <strong>{city.label}</strong>
-                  <span>
-                    Real places from OpenStreetMap. Check hours and availability
-                    before going.
-                  </span>
-                </p>
-                <button onClick={() => searchPlaces()} disabled={searchBusy}>
-                  {searchBusy ? "Finding places…" : "Explore this area ↗"}
-                </button>
-              </div>
-            </section>
-            {searchError && (
-              <div role="alert" className="notice error">
-                {searchError}
-              </div>
-            )}
-            <section className="discovery-results" aria-busy={searchBusy}>
-              <div className="section-header">
-                <div>
-                  <h2>
-                    {searchBusy
-                      ? "Looking around…"
-                      : result
-                        ? `${visiblePlaces.length} places to consider`
-                        : "Your next good day starts somewhere."}
-                  </h2>
-                  <p>
-                    {result
-                      ? `${result.cityLabel} · ${result.radius / 1000} km · Retrieved ${new Date(result.fetchedAt).toLocaleString()}`
-                      : "Choose your area, then explore parks, cafés, museums and more."}
-                  </p>
-                </div>
-                <button
-                  className="secondary"
-                  onClick={() => setMapVisible((v) => !v)}
-                >
-                  {mapVisible ? "Hide map" : "Show map"}
-                </button>
-              </div>
-              {mapVisible && (
-                <Map
-                  center={result?.center || city}
-                  places={visiblePlaces}
-                  selected={selected?.id}
-                  onSelect={setSelected}
-                />
-              )}
-              {result && visiblePlaces.length === 0 && (
-                <div className="empty-state">
-                  <h3>No matching places in this area.</h3>
-                  <p>
-                    Try a larger radius or another category. You can always add
-                    a place you know.
-                  </p>
-                  <button
-                    className="secondary"
-                    onClick={() => manual()}
-                    disabled={!ready}
-                  >
-                    Add your own idea
-                  </button>
-                </div>
-              )}
-              {visiblePlaces.length > 0 && (
-                <div className="place-grid">
-                  {visiblePlaces.map((place, i) => {
-                    const planned = plans.some((x) => x.place.id === place.id);
-                    return (
-                      <article className="place-card" key={place.id}>
-                        <div className="place-meta">
-                          <span className="place-number">
-                            {String(i + 1).padStart(2, "0")}
-                          </span>
-                          <span>{place.category}</span>
-                          <span>{place.distanceKm} km</span>
-                        </div>
-                        <h3>
-                          <button
-                            className="title-button"
-                            onClick={() => setSelected(place)}
-                          >
-                            {place.name}
-                          </button>
-                        </h3>
-                        <p>
-                          {place.address || "Explore the map for this location"}
-                        </p>
-                        <div className="card-actions">
-                          <button
-                            className="secondary"
-                            disabled={!ready}
-                            onClick={() => addPlan(place)}
-                          >
-                            {planned ? "View your plan" : "Make a plan"}
-                          </button>
-                          <button
-                            className="text-button"
-                            onClick={() => setSelected(place)}
-                          >
-                            Details ↗
-                          </button>
-                        </div>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-              {result && (
-                <p className="source-note">
-                  ©{" "}
-                  <a
-                    href="https://www.openstreetmap.org/copyright"
-                    target="_blank"
-                    rel="noreferrer"
-                  >
-                    OpenStreetMap contributors
-                  </a>{" "}
-                  · Discovery via{" "}
-                  <a href={result.providerUrl} target="_blank" rel="noreferrer">
-                    {result.providerName}
-                  </a>
-                  .{" "}
-                  {result.sourceUpdatedAt &&
-                    `Source snapshot: ${new Date(result.sourceUpdatedAt).toLocaleDateString()}. `}
-                  Community listings can be incomplete. These are venues, not
-                  live events or available tickets.
-                </p>
-              )}
-            </section>
-          </>
-        )}
-        {(page === "plans" || page === "memories") && (
+        {page !== 'find' && !demoMode && !memoryDetail && <>
+          {draftError && <p className="notice error" role="alert">{draftError}</p>}
+          {drafts.length>0 && <section className="draft-recovery" aria-label="Unfinished outings"><h2>Pick up where you left off</h2>{drafts.map(d=><div className="draft-row" key={d.id}><div><strong>{d.outing.place.name || 'Unfinished outing'}</strong><p>{d.outing.photos.length} {d.outing.photos.length===1?"photo":"photos"} · Saved on this device</p></div><button className="secondary" disabled={!canEdit} onClick={()=>setEditor({outing:d.outing,isNew:d.isNew,recovery:d})}>Resume</button><button className="text-button" disabled={!canEdit} onClick={async()=>{if(!confirm('Discard this unfinished outing and its draft photos? Saved memories stay unchanged.'))return;try{await store.deleteDraft(d.id,d.savedAt);refreshDrafts();}catch(e){setDraftError(e.message);}}}>Discard</button></div>)}</section>}
+        </>}
+        {page === "find" && <ExploreWorld theme={theme}
+          city={city} cityText={cityText} cityMatches={cityMatches} cityBusy={cityBusy} cityError={cityError} geoBusy={geoBusy}
+          category={category} radius={radius} result={result} searchBusy={searchBusy} searchPhase={searchPhase} searchError={searchError}
+          selected={selected} mapVisible={mapVisible} mapLayer={mapLayer} canEdit={canEdit}
+          plans={plans} memories={memories} outings={library.outings} places={visiblePlaces} demoMode={demoMode}
+          onCorridor={chooseCorridor} onCityText={setCityText} onSearchCities={searchCities} onChooseCity={chooseCity} onGeolocate={geolocate}
+          onCategory={setCategory} onRadius={(value) => { setRadius(value); searchPlaces(city, false, false, value); }}
+          onSearch={(force = false) => searchPlaces(city, force)} onDownloadArea={() => searchPlaces(city, true, true)} onDismissError={() => setSearchError("")} onSelect={setSelected} onLayer={(value) => { setMapLayer(value); setSelected(null); }}
+          onMapVisible={setMapVisible} onSaveVisit={saveVisit} onPlan={addPlan} onVisit={visit} onMemory={(memory) => { navigate("memories"); setMemoryDetail(memory); }}
+          onManual={() => manual()} onDemo={enterDemo} onLeaveDemo={leaveDemo} onNavigate={navigate} directions={directions}
+        />}
+        {page === "memories" && <div hidden={Boolean(memoryDetail)}><MemoryTimeline memories={memories} canEdit={canEdit} onAdd={()=>manual(true)} onOpen={openMemory}/></div>}
+        {page === "plans" && !memoryDetail && (
           <>
             <section className="collection-intro">
-              <p className="eyebrow">
-                {page === "plans" ? "Good things ahead" : "The days you kept"}
-              </p>
-              <h1>
-                {page === "plans" ? "A reason to get out." : "You were here."}
-              </h1>
-              <p>
-                {page === "plans"
-                  ? "Little plans, big possibilities. Pick one and make a day of it."
-                  : "Your own collection of places, people and moments."}
-              </p>
-              <button
-                onClick={() => manual(page === "memories")}
-                disabled={!ready}
-              >
-                {page === "plans" ? "+ Add a plan" : "+ Add a memory"}
-              </button>
+              <div><h1>{page === "plans" ? "Your plans" : "Your memories"}</h1><p>{page === "plans" ? "Next up, whenever you’re ready." : "Places, people, good days."}</p></div>
+              <button onClick={() => manual(page === "memories")} disabled={!canEdit}>{page === "plans" ? "+ Add a plan" : "+ Add a memory"}</button>
             </section>
             <div className="section-header">
               <h2>
@@ -712,9 +585,6 @@ function App() {
             </div>
             {!filtered.length ? (
               <div className="empty-state">
-                <span className="empty-number">
-                  {query ? "?" : page === "plans" ? "01" : "03"}
-                </span>
                 <h3>
                   {query
                     ? "Nothing matches that search."
@@ -727,7 +597,7 @@ function App() {
                     ? "Try a place, person or word from your notes."
                     : page === "plans"
                       ? "Save a place from Find it, or add something you already have in mind."
-                      : "Visit a saved plan or add a past outing. Give it a few words and a photo worth keeping."}
+                      : "Add photos from a visit, or save an outing without photos."}
                 </p>
                 {!query && (
                   <button
@@ -735,7 +605,7 @@ function App() {
                     onClick={() =>
                       page === "plans" ? navigate("find") : manual(true)
                     }
-                    disabled={!ready}
+                    disabled={!canEdit}
                   >
                     {page === "plans"
                       ? "Find something to do"
@@ -780,14 +650,14 @@ function App() {
                         {outing.notes && (
                           <p className="preserve-lines">{outing.notes}</p>
                         )}
-                        <div className="plan-links">
-                          <a
+                        <details className="plan-options"><summary>Details & edit</summary><div className="plan-links">
+                          {outing.place.source !== "Sample" && <a
                             href={directions(outing.place)}
                             target="_blank"
                             rel="noreferrer"
                           >
                             Open map ↗
-                          </a>
+                          </a>}
                           {outing.place.website && (
                             <a
                               href={outing.place.website}
@@ -808,138 +678,40 @@ function App() {
                           )}
                           <button
                             className="text-button"
+                            disabled={!canEdit}
                             onClick={() => setEditor({ outing, isNew: false })}
                           >
                             Edit plan
                           </button>
                           <button
                             className="text-button quiet"
+                            disabled={!canEdit}
                             onClick={() => remove(outing)}
                           >
                             Remove
                           </button>
                         </div>
-                      </div>
-                      <button onClick={() => visit(outing)}>I went ↗</button>
+                      </details></div>
+                      <button disabled={!canEdit} onClick={() => visit(outing)}>I went ↗</button>
                     </article>
-                  ) : (
-                    <article className="memory-card" key={outing.id}>
-                      <button
-                        className="memory-open"
-                        onClick={() => setMemoryDetail(outing)}
-                      >
-                        {outing.photos[0] ? (
-                          <img
-                            src={outing.photos[0]}
-                            alt={`Memory of ${outing.place.name}`}
-                          />
-                        ) : (
-                          <div className="memory-no-photo">
-                            <span>
-                              {new Date(
-                                outing.visitDate + "T12:00:00",
-                              ).toLocaleDateString(undefined, {
-                                month: "short",
-                              })}
-                            </span>
-                            <strong>
-                              {new Date(
-                                outing.visitDate + "T12:00:00",
-                              ).getDate()}
-                            </strong>
-                            <span>
-                              {outing.place.category || "A day to remember"}
-                            </span>
-                          </div>
-                        )}
-                        <div className="memory-body">
-                          <p className="kicker">
-                            {displayDate(outing.visitDate)}
-                            {outing.rating > 0 && ` · ${outing.rating}/5`}
-                          </p>
-                          <h3>{outing.place.name}</h3>
-                          {outing.with && <p>With {outing.with}</p>}
-                          {outing.notes && (
-                            <p className="memory-excerpt">{outing.notes}</p>
-                          )}
-                          <span className="memory-link">Open memory ↗</span>
-                        </div>
-                      </button>
-                    </article>
-                  ),
+                  ) : null,
                 )}
               </div>
             )}
           </>
         )}
-        {page === "settings" && (
-          <>
-            <section className="collection-intro">
-              <p className="eyebrow">Your plans. Your memories.</p>
-              <h1>A journal that’s yours.</h1>
-              <p>Everything you save stays in this browser on this device.</p>
-            </section>
-            <div className="settings-grid">
-              <section className="settings-card">
-                <h2>Keep a copy.</h2>
+        {page === "settings" && <>
+          <section className="collection-intro"><div><h1>Your journal</h1><p>{syncLabel(account,library.sync)}.</p></div><button onClick={() => manual(true)} disabled={!canEdit}>+ Add a memory</button></section>
+          <div className="journal-counts"><button onClick={() => navigate("plans")}><strong>{plans.length}</strong><span>Plans ↗</span></button><button onClick={() => navigate("memories")}><strong>{memories.length}</strong><span>Memories ↗</span></button><div><strong>{new Set(memories.map(outing => outing.place.id)).size}</strong><span>Places visited</span></div></div>
+          <div className="journal-layout"><section className="journal-recent"><h2>Recently remembered</h2>
+            {memories.length ? memories.slice(0, 4).map(outing => <button className="journal-entry" key={outing.id} onClick={() => {navigate("memories");setMemoryDetail(outing);}}>{outing.photos[0] ? <img src={outing.photos[0]} alt=""/> : <span className={`landmark-sprite landmark-${placeIcon(outing.place.category)}`} aria-hidden="true"/>}<span><strong>{outing.place.name}</strong><small>{displayDate(outing.visitDate)}</small>{outing.notes && <span className="journal-excerpt">{outing.notes}</span>}</span><span aria-hidden="true">↗</span></button>) : <div className="journal-empty"><p>Your memories will collect here.</p><button className="secondary" onClick={() => navigate("find")}>Find an outing</button></div>}
+          </section><aside className="journal-tools">{account&&<AccountPanel account={account} library={library} onChanged={load} onExport={exportJournal}/>}<section className="settings-card"><h2>Keep a copy</h2><p>{account?.owner?"Export a private copy of the visits and photos on this device.":"No cloud sync. Export a backup to keep your photos and notes safe."}</p><div className="button-row"><button disabled={!ready&&!demoMode} onClick={exportJournal}>Export your journal</button><label className={`button secondary file-button ${!canEdit ? "disabled" : ""}`}>Import a backup<input type="file" accept="application/json,.json" aria-label="Import a backup" onChange={importFile} disabled={!canEdit}/></label></div><details className="quiet-details"><summary>Backup help</summary><p>Clearing browser data or losing this device can remove your journal. {account?.owner?"Imports keep different versions as separate copies.":"Imports merge by outing ID, keeping the newer edit."} The JSON includes photos and notes; keep it private. Up to 500 outings{account?.owner?"; 50 MB of unique photos, 80 MB per backup":" and 50 MB"}. Finish unfinished outings before exporting; drafts stay on this device.</p><button className="text-button" onClick={async () => {try {const granted = await navigator.storage?.persist?.();setMessage(granted ? "Persistent storage enabled." : "Keep regular backups; persistent storage was not granted.");} catch {setMessage("Persistent storage unavailable. Keep regular backups.");}}}>Ask browser to keep this journal</button></details></section>
+          <section className="settings-card"><h2>Map icons</h2><div className="icon-choices" aria-label="Map icon style">{[["line","Line"],["solid","Solid"]].map(([value,label]) => <button key={value} aria-pressed={iconStyle === value} onClick={() => setIconStyle(value)}><span className={`icon-preview icon-preview-${value}`} aria-hidden="true">{["garden","cafe","gallery","play"].map(kind => <span key={kind} className={`landmark-sprite landmark-${kind}`}/>)}</span>{label}</button>)}</div></section>
+          </aside></div>
+              <details className="quiet-details privacy-details">
+                <summary>Privacy, offline storage & data sources</summary>
                 <p>
-                  {plans.length} plans · {memories.length} memories ·{" "}
-                  {library.outings.reduce((n, o) => n + o.photos.length, 0)}{" "}
-                  photos
-                </p>
-                <p>
-                  There is no account or automatic cloud sync. Clearing browser
-                  data, changing browsers or losing this device can remove your
-                  journal. Export regularly, and import your backup on another
-                  device.
-                </p>
-                <div className="button-row">
-                  <button disabled={!ready} onClick={exportJournal}>
-                    Export your journal
-                  </button>
-                  <label
-                    className={`button secondary file-button ${!ready ? "disabled" : ""}`}
-                  >
-                    Import a backup
-                    <input
-                      type="file"
-                      accept="application/json,.json"
-                      aria-label="Import a backup"
-                      onChange={importFile}
-                      disabled={!ready}
-                    />
-                  </label>
-                </div>
-                <p className="hint">
-                  The JSON backup includes all photos and notes. Keep it
-                  private. Imports merge by outing ID, keeping the more recently
-                  edited version. Up to 500 outings and 50 MB per backup.
-                </p>
-                <button
-                  className="text-button"
-                  onClick={async () => {
-                    try {
-                      const granted = await navigator.storage?.persist?.();
-                      setMessage(
-                        granted
-                          ? "Persistent storage is enabled. Keep making backups too."
-                          : "This browser did not grant persistent storage. Your journal still saves locally; regular backups are the best protection.",
-                      );
-                    } catch {
-                      setMessage(
-                        "Persistent storage is unavailable. Keep regular backups.",
-                      );
-                    }
-                  }}
-                >
-                  Ask browser to keep this journal ↗
-                </button>
-              </section>
-              <section className="settings-card">
-                <h2>What leaves your device?</h2>
-                <p>
-                  Your notes, companions and photos are never uploaded by
-                  Boredone. Photos are resized locally and embedded metadata is
+                  {account?.owner?"Visits, companions and photos saved in your account are uploaded privately to Supabase for syncing. Your Google account is used only for sign-in. Device saves are uploaded only when you choose to copy them.":"Your notes, companions and photos in this device journal are never uploaded by Boredone."} Photos are resized locally and embedded metadata is
                   removed before saving. Anyone with access to this browser
                   profile can read the journal.
                 </p>
@@ -962,17 +734,20 @@ function App() {
                     VK Maps
                   </a>
                   . The results name the provider used. No journal content is
-                  sent to either service. The map loads tiles from{" "}
+                  sent to either service. The illustrated map loads vector tiles from{" "}
                   <a
-                    href="https://osmfoundation.org/wiki/Privacy_Policy"
+                    href="https://openfreemap.org/"
                     target="_blank"
                     rel="noreferrer"
                   >
-                    OpenStreetMap
+                    OpenFreeMap
                   </a>
                   ; tile requests reveal the viewed area and your IP address.
                   Use “Hide map” to stop loading tiles.
                 </p>
+                <p>Editorial descriptions come from Wikivoyage contributors (CC BY-SA 4.0). Licensed Commons photos include author credits and work offline. Venue website previews load directly from the linked website or its image host, which receives your IP address; Boredone sends no referrer. These online images are not bundled for offline use or treated as openly licensed photos. Venue services never receive your saved notes or personal photos.</p>
+                <p>Up to 12 recent place searches are kept in this browser with their original retrieval dates: live searches for 24 hours, explicitly saved map areas for 30 days. This public directory cache is separate from your journal and lets you keep exploring during an outage. After a successful online visit in a supported browser, the production app also caches its public files so you can reopen offline. Map tiles and live searches still require internet; browser storage may be evicted.</p>
+                <button className="secondary" onClick={() => { clearDiscoveryCache(); setResult(bundledArea(city, radius)); setMessage("Saved place searches cleared. Your journal is unchanged."); }}>Clear saved place searches</button>
                 <p>
                   City lookup uses a bundled{" "}
                   <a
@@ -996,130 +771,34 @@ function App() {
                   Local journal storage is not encrypted. Boredone has no
                   analytics or advertising trackers.
                 </p>
-              </section>
-            </div>
-          </>
-        )}
-        <footer className="app-footer">
-          <span>boredone · Find it. Do it. Remember.</span>
-          <button className="text-button" onClick={() => navigate("settings")}>
-            Saved on this device · Backup & privacy ↗
-          </button>
-        </footer>
-      </main>
-      <nav className="mobile-tabs" aria-label="Mobile navigation">
-        {TABS.map(([id, label]) => (
-          <button
-            key={id}
-            aria-current={page === id ? "page" : undefined}
-            onClick={() => navigate(id)}
-          >
-            {label}
-          </button>
-        ))}
-        <button
-          aria-current={page === "settings" ? "page" : undefined}
-          onClick={() => navigate("settings")}
-        >
-          Journal
-        </button>
-      </nav>
-      {selected && (
-        <Modal title={selected.name} onClose={() => setSelected(null)}>
-          <p className="kicker">
-            {selected.category} · {selected.distanceKm} km from your search
-            center
-          </p>
-          <p>{selected.address || "See the map for its location."}</p>
-          <dl className="place-facts">
-            <dt>Opening hours</dt>
-            <dd>{selected.hours || "Not listed. Check with the venue."}</dd>
-            <dt>Entry / price</dt>
-            <dd>{selected.fee}</dd>
-            <dt>Wheelchair access</dt>
-            <dd>{selected.access || "Not listed. Check with the venue."}</dd>
-          </dl>
-          <p className="hint">
-            Community information can be incomplete or out of date. Confirm
-            hours, access and bookings with the venue.
-          </p>
-          <div className="button-row">
-            <a
-              className="button secondary"
-              href={directions(selected)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Open map ↗
-            </a>
-            {selected.website && (
-              <a
-                className="button secondary"
-                href={selected.website}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Venue website ↗
-              </a>
-            )}
-            <a
-              className="text-button"
-              href={selected.sourceUrl}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Source listing ↗
-            </a>
-          </div>
-          <div className="dialog-actions">
-            <button disabled={!ready} onClick={() => addPlan(selected)}>
-              Make a plan
-            </button>
-          </div>
-        </Modal>
-      )}
-      {editor && (
-        <Editor
-          key={editor.outing.id}
-          {...editor}
-          onClose={() => setEditor(null)}
-          onSave={saveOuting}
-        />
-      )}
+              </details>
+        </>}
       {memoryDetail && (
-        <Modal
-          title={memoryDetail.place.name}
-          wide
-          onClose={() => setMemoryDetail(null)}
-        >
+        <article className="memory-page">
+          <button className="text-button" onClick={closeMemory}>← All memories</button>
+          <h1 id="memory-heading" tabIndex={-1}>{memoryDetail.place.name}</h1>
           <p className="kicker">
             {displayDate(memoryDetail.visitDate)}
             {memoryDetail.rating > 0 && ` · ${memoryDetail.rating}/5`}
           </p>
           {memoryDetail.with && <p>With {memoryDetail.with}</p>}
           <p className="memory-notes">
-            {memoryDetail.notes || "A day worth keeping."}
+            {memoryDetail.notes}
           </p>
-          <div className="memory-photos">
-            {memoryDetail.photos.map((photo, i) => (
-              <img
-                key={i}
-                src={photo}
-                alt={`Memory photo ${i + 1} from ${memoryDetail.place.name}`}
-              />
-            ))}
-          </div>
+          <Album photos={memoryDetail.photos} name={memoryDetail.place.name}/>
+          <button className="text-button" disabled={!canEdit} onClick={()=>saveVisit(memoryDetail.place)}>Save another visit here</button>
           <div className="button-row">
-            <a
+            {memoryDetail.place.source !== "Sample" && <a
               className="button secondary"
               href={directions(memoryDetail.place)}
               target="_blank"
               rel="noreferrer"
             >
               Open map ↗
-            </a>
+            </a>}
             <button
               className="secondary"
+              disabled={!canEdit}
               onClick={() => {
                 setEditor({ outing: memoryDetail, isNew: false });
                 setMemoryDetail(null);
@@ -1128,33 +807,58 @@ function App() {
               Edit memory
             </button>
             <button
+              disabled={!canEdit}
               onClick={() => {
                 const place = memoryDetail.place;
                 setMemoryDetail(null);
                 addPlan(place);
               }}
             >
-              Go again
+              Plan another visit
             </button>
             <button
               className="text-button quiet"
+              disabled={!canEdit}
               onClick={() => remove(memoryDetail)}
             >
               Delete memory
             </button>
           </div>
-        </Modal>
+        </article>
+      )}
+        <footer className="app-footer">
+          <span>boredone</span>
+          <button className="text-button" onClick={() => navigate("settings")}>
+            Backup & privacy
+          </button>
+        </footer>
+      </main>
+
+      {editor && (
+        <Editor
+          key={editor.outing.id}
+          draftStore={store}
+          validate={store.validateOuting}
+          preserveDate={!!account?.owner}
+          syncEnabled={!!account?.owner}
+          {...editor}
+          onClose={() => setEditor(null)}
+          onSave={saveOuting}
+          draftsEnabled={!demoMode}
+          onDraftsChanged={refreshDrafts}
+          people={memoryOptions(library.outings).people}
+        />
       )}
       {importing && (
         <Modal
           title="Bring your journal back"
           onClose={() => !importBusy && setImporting(null)}
         >
-          <p>
+          {account?.owner?<p>This backup contains {importing.count} outings. Matching saves are skipped. Different versions are kept as separate copies; existing memories stay intact.</p>:<p>
             This backup contains {importing.count} outings. It will add{" "}
             {importing.added} and update {importing.updated} older versions.
             Your other outings and newer edits will stay.
-          </p>
+          </p>}
           <p>
             Back up your current journal first if you want to preserve both
             versions of an edited outing.
@@ -1177,4 +881,4 @@ function App() {
     </>
   );
 }
-createRoot(document.getElementById("root")).render(<App />);
+createRoot(document.getElementById("root")).render(<JournalRoot App={App} guestStore={guestStore}/>);

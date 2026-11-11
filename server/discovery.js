@@ -1,6 +1,5 @@
-const cache = new Map();
-const inflight = new Map();
-const unavailableUntil = new Map();
+import { VENUE_KINDS } from '../src/venues.js';
+import { diversePool } from './place-pool.js';
 const PROVIDERS = [
   {
     url: "https://overpass.private.coffee/api/interpreter",
@@ -18,7 +17,7 @@ const CATEGORIES = {
     'nwr["leisure"~"^(park|garden|nature_reserve)$"]["name"];nwr["tourism"="viewpoint"]["name"];',
   culture:
     'nwr["tourism"~"^(museum|gallery|attraction)$"]["name"];nwr["amenity"~"^(arts_centre|theatre|cinema)$"]["name"];',
-  food: 'nwr["amenity"~"^(cafe|restaurant|ice_cream)$"]["name"];',
+  food: 'nwr["amenity"~"^(cafe|restaurant|ice_cream|bar|pub|biergarten|nightclub)$"]["name"];nwr["shop"="bakery"]["name"];',
   play: 'nwr["leisure"~"^(bowling_alley|miniature_golf|escape_game|sports_centre)$"]["name"];',
 };
 export function searchInput(query) {
@@ -49,9 +48,9 @@ export function searchInput(query) {
 export function buildQuery({ lat, lng, radius, category }) {
   const selectors =
     category === "all"
-      ? Object.values(CATEGORIES).join("")
+      ? 'nwr["amenity"~"^(restaurant|cafe|bar|pub|biergarten|nightclub|ice_cream|cinema|theatre|music_venue|comedy_club)$"]["name"];nwr["shop"="bakery"]["name"];nwr["leisure"~"^(bowling_alley|miniature_golf|escape_game|amusement_arcade)$"]["name"];'
       : CATEGORIES[category];
-  return `[out:json][timeout:25][maxsize:16777216];(${selectors.replaceAll("nwr[", `nwr(around:${radius},${lat},${lng})[`)});out center tags 180;`;
+  return `[out:json][timeout:12][maxsize:16777216];(${selectors.replaceAll("nwr[", `nwr(around:${radius},${lat},${lng})[`)});out center 1500;`;
 }
 export function safeUrl(raw) {
   try {
@@ -85,7 +84,7 @@ export function distanceKm(a, b) {
 }
 export function normalizePlaces(data, center) {
   const seen = new Set();
-  return (data.elements || [])
+  return diversePool((data.elements || [])
     .flatMap((e) => {
       const t = e.tags || {},
         lat = Number(e.lat ?? e.center?.lat),
@@ -97,6 +96,7 @@ export function normalizePlaces(data, center) {
         t.access === "private" ||
         t.disused === "yes" ||
         t.abandoned === "yes" ||
+        (center.category === "all" && !VENUE_KINDS.has(t.amenity || t.tourism || t.leisure || t.shop || "")) ||
         (center.radius &&
           distanceKm(center, { lat, lng }) > center.radius / 1000)
       )
@@ -105,7 +105,7 @@ export function normalizePlaces(data, center) {
         t.name.toLowerCase() + ":" + lat.toFixed(3) + ":" + lng.toFixed(3);
       if (seen.has(key)) return [];
       seen.add(key);
-      const type = t.amenity || t.tourism || t.leisure || "place";
+      const type = t.amenity || t.tourism || t.leisure || t.shop || "place";
       return [
         {
           id: `osm-${e.type}-${e.id}`,
@@ -132,80 +132,133 @@ export function normalizePlaces(data, center) {
       ];
     })
     .sort((a, b) => a.distanceKm - b.distanceKm)
-    .slice(0, 120);
+    );
 }
-async function discover(input) {
-  const key = JSON.stringify(input),
-    prior = cache.get(key);
-  if (prior && Date.now() - prior.time < 30 * 60 * 1000)
-    return { ...prior.result, cached: true };
-  if (inflight.has(key)) return inflight.get(key);
-  const task = (async () => {
-    if (inflight.size >= 4)
-      throw new Error(
-        "The place directory is busy. Please try again in a minute. Your plans and memories are still available.",
-      );
-    const providers = process.env.BOREDONE_OVERPASS_URL
-      ? [
-          {
-            url: process.env.BOREDONE_OVERPASS_URL,
-            name:
-              process.env.BOREDONE_OVERPASS_NAME ||
-              "Configured Overpass provider",
-            home:
-              process.env.BOREDONE_OVERPASS_HOME ||
-              "https://www.openstreetmap.org/",
-          },
-        ]
-      : PROVIDERS;
-    let data, provider;
-    for (const candidate of providers) {
-      if ((unavailableUntil.get(candidate.url) || 0) > Date.now()) continue;
-      try {
-        const response = await fetch(candidate.url, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            "User-Agent":
-              "Boredone/0.1 (+https://project-room-alpha.vercel.app/)",
-          },
-          body: new URLSearchParams({ data: buildQuery(input) }),
-          signal: AbortSignal.timeout(28000),
-        });
-        if (!response.ok) throw new Error("upstream unavailable");
-        const body = await response.json();
-        if (body.remark || !Array.isArray(body.elements))
-          throw new Error("upstream incomplete");
-        data = body;
-        provider = candidate;
-        break;
-      } catch {
-        unavailableUntil.set(candidate.url, Date.now() + 120000);
+const FRESH_MS = 30 * 60 * 1000;
+const RETAIN_MS = 24 * 60 * 60 * 1000;
+const unavailableMessage = "The place directory is unavailable right now. Try again shortly or keep exploring your saved results. Your plans and memories are still available.";
+const abortError = () => new DOMException("Search cancelled", "AbortError");
+
+export function createDiscoveryService({
+  fetcher = (...args) => fetch(...args), clock = Date.now,
+  providers: suppliedProviders, hedgeMs = 1500, deadlineMs = 22000,
+} = {}) {
+  const cache = new Map(), inflight = new Map(), unavailableUntil = new Map();
+  let preferredProviderUrl = null;
+  function providerList() {
+    return (suppliedProviders || (process.env.BOREDONE_OVERPASS_URL ? [{
+      url: process.env.BOREDONE_OVERPASS_URL,
+      name: process.env.BOREDONE_OVERPASS_NAME || "Configured Overpass provider",
+      home: process.env.BOREDONE_OVERPASS_HOME || "https://www.openstreetmap.org/",
+    }] : [...PROVIDERS].reverse())).filter(p => (unavailableUntil.get(p.url) || 0) <= clock())
+      .sort((a,b) => Number(b.url === preferredProviderUrl) - Number(a.url === preferredProviderUrl)).slice(0,2);
+  }
+  async function upstream(input, signal) {
+    const providers = providerList();
+    if (!providers.length) throw new Error(unavailableMessage);
+    return new Promise((resolve, reject) => {
+      const controllers = new Set();
+      let next = 0, active = 0, finished = false, hedge;
+      function finish(error, value) {
+        if (finished) return;
+        finished = true; clearTimeout(hedge); clearTimeout(deadline);
+        signal.removeEventListener("abort", cancelled);
+        for (const controller of controllers) controller.abort();
+        error ? reject(error) : resolve(value);
       }
+      const cancelled = () => finish(abortError());
+      const deadline = setTimeout(() => {
+        for (const candidate of providers) unavailableUntil.set(candidate.url, clock() + 30000);
+        finish(new Error(unavailableMessage));
+      }, deadlineMs);
+      signal.addEventListener("abort", cancelled, {once:true});
+      if (signal.aborted) { cancelled(); return; }
+      async function launch() {
+        if (finished || next >= providers.length) return;
+        const provider = providers[next++], controller = new AbortController();
+        controllers.add(controller); active++;
+        try {
+          const response = await fetcher(provider.url, {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json", "User-Agent": "Boredone/0.2 (+https://project-room-alpha.vercel.app/)" },
+            body: new URLSearchParams({data: buildQuery(input)}), signal: controller.signal,
+          });
+          if (!response.ok) {
+            const retry = Number(response.headers?.get("Retry-After"));
+            const cooldown = response.status === 429 ? Math.max(120000, Math.min(300000, (retry || 120) * 1000)) : 30000;
+            unavailableUntil.set(provider.url, clock() + cooldown);
+            throw new Error("upstream unavailable");
+          }
+          const data = await response.json();
+          if (data.remark || !Array.isArray(data.elements)) throw new Error("upstream incomplete");
+          if (finished) return;
+          preferredProviderUrl = provider.url;
+          finish(null, {data, provider});
+        } catch {
+          if (finished) return; // cancelled losers must not poison provider health
+          if (!unavailableUntil.has(provider.url) || unavailableUntil.get(provider.url) <= clock()) unavailableUntil.set(provider.url, clock() + 30000);
+          active--;
+          if (next < providers.length) { clearTimeout(hedge); launch(); }
+          else if (!active) finish(new Error(unavailableMessage));
+        }
+      }
+      launch();
+      hedge = setTimeout(launch, hedgeMs);
+    });
+  }
+  async function run(input, signal) {
+    const key = JSON.stringify(input), prior = cache.get(key);
+    try {
+      const {data, provider} = await upstream(input, signal);
+      const result = {
+        places: normalizePlaces(data, input), fetchedAt: new Date(clock()).toISOString(),
+        sourceUpdatedAt: data.osm3s?.timestamp_osm_base || null,
+        attribution: "© OpenStreetMap contributors", source: `OpenStreetMap via ${provider.name}`,
+        providerName: provider.name, providerUrl: provider.home,
+        center: {lat: input.lat, lng: input.lng}, radius: input.radius, category: input.category,
+        cached: false, stale: false,
+      };
+      if (cache.size >= 100) cache.delete(cache.keys().next().value);
+      cache.set(key, {time: clock(), result});
+      return result;
+    } catch (error) {
+      if (signal.aborted) throw abortError();
+      if (prior && clock() - prior.time < RETAIN_MS) return {
+        ...prior.result, cached: true, stale: true,
+        notice: "Live discovery is unavailable. Showing previously retrieved places; check the venue before going.",
+      };
+      throw error;
     }
-    if (!data)
-      throw new Error(
-        "The place directory is busy. Please try again in a minute. Your plans and memories are still available.",
-      );
-    const result = {
-      places: normalizePlaces(data, input),
-      fetchedAt: new Date().toISOString(),
-      sourceUpdatedAt: data.osm3s?.timestamp_osm_base || null,
-      attribution: "© OpenStreetMap contributors",
-      source: `OpenStreetMap via ${provider.name}`,
-      providerName: provider.name,
-      providerUrl: provider.home,
-      center: { lat: input.lat, lng: input.lng },
-      radius: input.radius,
-      cached: false,
-    };
-    if (cache.size >= 100) cache.delete(cache.keys().next().value);
-    cache.set(key, { time: Date.now(), result });
-    return result;
-  })().finally(() => inflight.delete(key));
-  inflight.set(key, task);
-  return task;
+  }
+  return function discover(input, {signal} = {}) {
+    if (signal?.aborted) return Promise.reject(abortError());
+    const key = JSON.stringify(input), prior = cache.get(key);
+    if (prior && clock() - prior.time < FRESH_MS) return Promise.resolve({...prior.result, cached:true});
+    let entry = inflight.get(key);
+    if (!entry) {
+      if (inflight.size >= 3) return Promise.reject(new Error(unavailableMessage));
+      entry = {controller: new AbortController(), consumers: 0};
+      inflight.set(key, entry);
+      entry.task = run(input, entry.controller.signal).finally(() => { if(inflight.get(key) === entry) inflight.delete(key); });
+    }
+    entry.consumers++;
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      function settle(error, value) {
+        if (settled) return;
+        settled = true; signal?.removeEventListener("abort", cancel); entry.consumers--;
+        if (!entry.consumers && inflight.get(key) === entry) {
+          inflight.delete(key); entry.controller.abort();
+        }
+        error ? reject(error) : resolve(value);
+      }
+      const cancel = () => settle(abortError());
+      signal?.addEventListener("abort", cancel, {once:true});
+      entry.task.then(value => settle(null,value), error => settle(error));
+    });
+  };
 }
+const discover = createDiscoveryService();
 export async function discoveryHandler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   res.setHeader("X-Content-Type-Options", "nosniff");
@@ -224,13 +277,22 @@ export async function discoveryHandler(req, res) {
     return;
   }
   try {
-    const result = await discover(input);
+    const controller = new AbortController();
+    const disconnected = () => { if (!res.writableEnded) controller.abort(); };
+    res.on?.("close", disconnected);
+    let result;
+    try { result = await discover(input, {signal:controller.signal}); }
+    finally { res.off?.("close", disconnected); }
+    if (controller.signal.aborted) return;
     res.setHeader(
       "Cache-Control",
-      "public, s-maxage=1800, stale-while-revalidate=3600",
+      result.stale
+        ? "no-store"
+        : "public, max-age=0, s-maxage=1800",
     );
     res.end(JSON.stringify(result));
   } catch (e) {
+    if (res.destroyed) return;
     res.statusCode = 503;
     res.setHeader("Cache-Control", "no-store");
     res.end(
