@@ -252,8 +252,27 @@ test("a neighborhood taste set asks for any 5, not all", () => {
   const taste = generateSets(board()).find((s) => s.name === "Taste of Lawrenceville");
   assert.equal(taste.rule, "any");
   assert.equal(taste.goal, 5);
-  assert.equal(taste.size, 15);
-  assert.equal(taste.description, "Visit any 5 of 15");
+  assert.equal(taste.size, 14);
+  assert.equal(taste.description, "Visit any 5 of 14");
+});
+
+test("a taste set holds only food and drink, never a cinema or an arcade", () => {
+  const sets = generateSets(board());
+  const names = (set) => set.places.map((p) => p.name);
+  const lv = sets.find((s) => s.name === "Taste of Lawrenceville");
+  const strip = sets.find((s) => s.name === "Taste of Strip District");
+  assert.ok(!names(lv).includes("Row House Cinema"));
+  assert.ok(!names(strip).includes("Puttshack"));
+  assert.ok(names(lv).includes("Bierport") && names(lv).includes("Espresso A Mano"));
+  for (const set of [lv, strip]) for (const p of set.places) assert.ok(["restaurant", "bakery", "ice_cream", "cafe", "coffee_shop", "bar", "pub", "biergarten", "brewery", "winery"].includes(p.kind), `${p.name} is ${p.kind}`);
+});
+
+test("a neighborhood with too few food and drink places gets no taste set", () => {
+  const hood = (id) => ({ ...real(id), neighborhood: "Polish Hill" });
+  const fun = ALL.filter((p) => ["cinema", "amusement_arcade", "bowling_alley", "theatre", "escape_game"].includes(p.category)).slice(0, 6);
+  const places = [...fun.map((p) => ({ ...p, neighborhood: "Polish Hill" })), hood(LV_COFFEE[0]), hood(LV_COFFEE[1])];
+  assert.ok(places.length > 5);
+  assert.equal(generateSets(board("1", places)).find((s) => s.name === "Taste of Polish Hill"), undefined);
 });
 
 test("set ids are stable across editions when membership is unchanged", () => {

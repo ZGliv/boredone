@@ -36,10 +36,7 @@ export default function PileRow({ save, place, near, today, now, showClock, canE
         {save.place && (clock
           ? <span className="pile-when t-tab">{clock}</span>
           : (
-            <span className="pile-age t-tab">
-              <Icon name={save.source?.url ? "link" : "note"} size={13} />
-              {shortAge(save.source?.savedAt || save.createdAt, now)}
-            </span>
+            <span className="pile-age t-tab">{shortAge(save.source?.savedAt || save.createdAt, now)}</span>
           ))}
       </button>
       {!save.place && canEdit && <button type="button" className="pile-find-btn" onClick={() => onFind(save)}>Find it</button>}

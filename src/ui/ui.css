@@ -35,7 +35,9 @@
 }
 .row:not(:has(.row-icon)) { grid-template-columns: 1fr auto; }
 .row-button { cursor: pointer; }
-.row-button:hover .row-title { text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+/* Rows never underline: a tap dims the row while pressed, like every list row. */
+.row-button { transition: opacity var(--t-fast) var(--ease); }
+.row-button:active { opacity: 0.6; }
 .row-icon { display: grid; place-items: center; width: 36px; height: 36px; color: var(--muted); }
 .row-icon-gold { color: var(--gold); }
 .row-icon-blue { color: var(--blue); }
@@ -97,12 +99,12 @@
 }
 
 /* Toast */
-.toast-slot { position: fixed; z-index: 60; left: 0; right: 0; top: calc(var(--safe-top) + var(--s3)); display: flex; justify-content: center; padding: 0 var(--gutter); pointer-events: none; }
+.toast-slot { position: fixed; z-index: 60; left: 0; right: 0; bottom: calc(var(--tabbar-h) + var(--safe-bottom) + var(--s3)); display: flex; justify-content: center; padding: 0 var(--gutter); pointer-events: none; }
 .toast { display: flex; align-items: center; gap: var(--s4); max-width: 480px; min-height: 48px; padding: var(--s2) var(--s2) var(--s2) var(--s4); background: var(--ink); color: var(--body); border-radius: var(--r-md); font-size: var(--text-sm); font-weight: 600; pointer-events: auto; animation: toast-in var(--t-med) var(--ease); }
 .toast button { min-height: 36px; padding: 0 var(--s3); border: 0; border-radius: var(--r-sm); background: none; color: var(--body); font-weight: 700; text-decoration: underline; cursor: pointer; }
-@media (min-width: 900px) { .toast-slot { padding-left: var(--rail-w); } }
+@media (min-width: 900px) { .toast-slot { bottom: calc(var(--safe-bottom) + var(--s5)); padding-left: var(--rail-w); } }
 
 @keyframes sheet-in { from { transform: translateY(100%); } }
 @keyframes fade-in { from { opacity: 0; } }
-@keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
 .toast:not(:has(button)) { padding-right: var(--s4); }

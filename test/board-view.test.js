@@ -40,13 +40,23 @@ test("setStanding agrees with cityBoard.setProgress for every set", () => {
   assert.equal(ids.size, boardProgress(board, extra).done);
 });
 
-test("almostFinished lists started, unfinished sets, closest first", () => {
+test("almostFinished lists sets at least half done and unfinished, closest first", () => {
   const rows = almostFinished(sets, doneIds, 10);
   assert.ok(rows.length >= 1);
-  assert.ok(rows.every((r) => r.done > 0 && !r.complete));
+  assert.ok(rows.every((r) => r.done * 2 >= r.goal && !r.complete));
   for (let i = 1; i < rows.length; i++) assert.ok(rows[i - 1].remaining <= rows[i].remaining);
   assert.ok(rows.some((r) => r.id === target.id));
   assert.deepEqual(almostFinished(sets, new Set()), []);
+});
+
+test("almostFinished leaves out a set that is barely started or already finished", () => {
+  const taste = sets.find((s) => s.rule === "any" && s.goal === 5);
+  const one = new Set([taste.members[0]]);
+  assert.ok(!almostFinished(sets, one, 100).some((r) => r.id === taste.id), "1 of 5 is not almost finished");
+  const three = new Set(taste.members.slice(0, 3));
+  assert.ok(almostFinished(sets, three, 100).some((r) => r.id === taste.id), "3 of 5 is");
+  const all = new Set(target.members);
+  assert.ok(!almostFinished(sets, all, 100).some((r) => r.id === target.id), "a finished set is not listed");
 });
 
 test("leftText names what is left only when it is short", () => {
@@ -105,6 +115,15 @@ test("doneEffect states the real board effect of the next visit", () => {
   assert.equal(lines.head, `${target.name}, 3 of 4`);
   assert.equal(lines.tail, `${target.places[3].name} is the last one`);
   if (third.neighborhood !== ELSEWHERE) assert.equal(effect.hood.name, third.neighborhood);
+});
+
+test("effectLines does not repeat the tally as a bare count left", () => {
+  const set = { name: "Taste of Fifth & Forbes", rule: "any", done: 1, goal: 5, remaining: 4, complete: false, left: [] };
+  const lines = effectLines({ isNew: true, set, hood: null });
+  assert.equal(lines.head, "Taste of Fifth & Forbes, 1 of 5");
+  assert.equal(lines.tail, "");
+  const named = { name: "Polish Hill bars", rule: "all", done: 2, goal: 4, remaining: 2, complete: false, left: [{ name: "A" }, { name: "B" }] };
+  assert.equal(effectLines({ isNew: true, set: named, hood: null }).tail, "2 left: A, B");
 });
 
 test("doneEffect: a place already done, or not on the board", () => {

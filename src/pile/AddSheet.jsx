@@ -23,7 +23,7 @@ export function AddSheet({ onSubmit, onClose }) {
     try { await onSubmit(text); } catch (e) { setError(e.message); setBusy(false); }
   }
   return (
-    <Sheet title="Save" onClose={onClose} className="pile-sheet">
+    <Sheet label="Save to pile" onClose={onClose} className="pile-sheet">
       <form className="pile-add" onSubmit={submit}>
         <label className="sr-only" htmlFor="pile-add-input">Link or note</label>
         <textarea id="pile-add-input" ref={field} data-autofocus rows={3} maxLength={4000} placeholder="Link or note" value={text} disabled={busy}

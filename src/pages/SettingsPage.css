@@ -10,6 +10,8 @@
 .settings-list { list-style: none; margin: 0; padding: 0; }
 .settings-list li { padding: var(--s3) 0; border-bottom: var(--hair); color: var(--muted); font-size: var(--text-sm); }
 .settings-list a { color: var(--ink); text-decoration-color: var(--line); text-underline-offset: 3px; }
-.settings-sources li { font-size: var(--text-xs); line-height: 1.5; }
+.settings-sources { display: grid; gap: var(--s1); margin-top: var(--s2); }
+.settings-list.settings-sources li { padding: 0; border: 0; color: var(--muted); font-size: var(--text-xs); line-height: 1.45; }
+.settings-list.settings-sources a { color: var(--muted); }
 .settings-version { margin-top: var(--s6); color: var(--faint); font-size: var(--text-xs); }
 .settings .account-panel h2 { margin: var(--s4) 0 0; }

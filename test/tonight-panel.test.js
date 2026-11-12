@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { closestSet, eventsQuery, isoWithOffset, linkEvents, pickDay, pickView, planFor, planFromPick, saveForPlace, sessionDate, tonightContext, tonightEnd } from "../src/tonight/tonightModel.js";
+import { closestSet, eventsQuery, isoWithOffset, linkEvents, pickDay, pickView, planFor, planFromPick, saveForPlace, sessionDate, tonightContext, tonightEnd, tonightSaves } from "../src/tonight/tonightModel.js";
 import { decideTonight } from "../src/decide.js";
 import { makeSave } from "../src/saves.js";
 
@@ -67,17 +67,21 @@ test("pickView keeps decide's reasons but moves distance out and drops the repea
   assert.deepEqual(noLoc.reasons, []);
 });
 
-test("pickView marks save age blue and names an unplaced save by its note", () => {
+test("an unplaced note is never one of tonight's three; a placed save is", () => {
   const now = new Date(2026, 10, 13, 18, 0);
-  const save = makeSave({ text: "that ramen place Sam mentioned", now: new Date(2026, 10, 1) });
-  const { picks } = decideTonight({ saves: [save], context: tonightContext({ now }) });
-  const view = pickView(picks[0]);
-  assert.equal(view.title, "that ramen place Sam mentioned");
-  assert.equal(view.line, "Your note");
-  assert.equal(view.unplaced, true);
+  const note = makeSave({ text: "that ramen place Sam mentioned", now: new Date(2026, 10, 1) });
+  const reel = makeSave({ url: "https://www.instagram.com/reel/abc", now: new Date(2026, 10, 1) });
+  const placed = makeSave({ text: "Gooski's", place: bar, now: new Date(2026, 10, 1) });
+  const far = makeSave({ text: "far", place: { id: "p-far", name: "Far Bar", lat: 41.5, lng: -81.7, category: "bar" }, now: new Date(2026, 10, 1) });
+  const kept = tonightSaves([note, reel, placed, far], { places: [bar, cafe], placeById: new Map([[bar.id, bar], [cafe.id, cafe]]), center: here, reach: 25 });
+  assert.deepEqual(kept.map((s) => s.id), [placed.id]);
+  const { picks } = decideTonight({ saves: kept, places: [cafe], context: tonightContext({ now, location: here }) });
+  const views = picks.map((p) => pickView(p, { location: here }));
+  assert.ok(views.every((v) => v.place && v.spot && v.distance), "every pick has a place, a spot and a distance");
+  const view = views.find((v) => v.save?.id === placed.id);
+  assert.equal(view.title, "Gooski's");
   assert.equal(view.reasons[0].tone, "blue");
   assert.match(view.reasons[0].text, /^Saved/);
-  assert.deepEqual(view.reasons.map((r) => r.text).slice(1), ["Place not confirmed"]);
 });
 
 test("Go turns a placed save into tonight's plan and keeps its source", () => {
@@ -180,17 +184,8 @@ test("a save dated later this week is planned for its own day, not tonight", () 
   assert.equal(pickDay(pick, new Date(2026, 10, 15, 1, 0)), "2026-11-14", "after midnight it is still that night");
 });
 
-test("pickView names an unplaced caption like the Pile and a placed save by the city's record", () => {
+test("pickView names a placed save by the city's record", () => {
   const now = new Date(2026, 10, 13, 18, 0);
-  const reel = makeSave({ url: "https://www.instagram.com/reel/abc", now: new Date(2026, 10, 1) });
-  const caption = makeSave({ text: "pierogi at @aptekapgh #lawrenceville", now: new Date(2026, 10, 1) });
-  const views = decideTonight({ saves: [reel, caption], context: tonightContext({ now }) }).picks.map((p) => pickView(p));
-  const r = views.find((v) => v.save.id === reel.id), c = views.find((v) => v.save.id === caption.id);
-  assert.equal(r.title, "Instagram Reel");
-  assert.equal(r.quoted, false);
-  assert.equal(r.line, "", "not \"Instagram Reel\" twice");
-  assert.equal(c.title, "pierogi at aptekapgh lawrenceville");
-  assert.equal(c.quoted, true);
   const legacy = makeSave({ text: "x", place: { ...bar, id: "guide-1", neighborhood: "" }, now: new Date(2026, 10, 1) });
   const pick = decideTonight({ saves: [legacy], context: tonightContext({ now }) }).picks[0];
   assert.equal(pickView(pick, { placeOf: () => bar }).line, "Bar in Polish Hill");

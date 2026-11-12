@@ -6,7 +6,7 @@
 // permanent info icon. Tonight's Three (src/decide.js) is docked at the bottom.
 import React, { useEffect, useMemo, useState } from "react";
 import { useApp } from "../app/AppContext";
-import { directions, targetHash } from "../app/routes";
+import { directions } from "../app/routes";
 import useHashTarget from "../app/useHashTarget";
 import CitySwitcher from "../city/CitySwitcher";
 import { count, distanceText, placeLine } from "../city/placeText";
@@ -25,7 +25,7 @@ import "./MapPage.css";
 
 export default function MapPage() {
   const app = useApp();
-  const { places, placeById, states, city, cityId, cities, setCityId, cityStatus, retryCity, progress, board, saves, outings, ready, actions, canEdit, toast, navigate } = app;
+  const { places, placeById, states, city, cityId, cities, setCityId, cityStatus, retryCity, progress, board, saves, outings, ready, actions, canEdit, toast } = app;
   const [selected, setSelected] = useState(null);
   const [follow, setFollow] = useState(0);
   const [mode, setMode] = useState("dock"), [openId, setOpenId] = useState(null), [panelHeight, setPanelHeight] = useState(0);
@@ -103,7 +103,7 @@ export default function MapPage() {
       {!selected && tonight.picks.length > 0 && (
         <TonightPanel key={cityId} tonight={tonight} mode={mode} setMode={setMode} openId={openId} setOpenId={setOpenId}
           planOf={planOf} factOf={factOf} canEdit={canEdit} onHeight={setPanelHeight}
-          onGo={go} onDone={(plan) => actions.visit(plan)} onFind={(pick) => navigate(targetHash("pile", pick.save.id))} />
+          onGo={go} onDone={(plan) => actions.visit(plan)} />
       )}
 
       {selected && (

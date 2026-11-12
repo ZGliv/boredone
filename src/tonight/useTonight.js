@@ -1,17 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { decideTonight } from "../decide.js";
 import { placeForOuting } from "../city/cityPlaces.js";
-import { distance } from "../recommendations.js";
-import { pickView, tonightContext } from "./tonightModel.js";
+import { pickView, tonightContext, tonightSaves } from "./tonightModel.js";
 
 // Tonight's Three for the map. The three stay put while you act on them:
 // going, saving or marking one done does not reshuffle the list under your
 // thumb; the dials, "Not tonight", "Three more", a new location, events
 // arriving or the city changing do. (Leaving the map and coming back reads
 // the journal afresh.)
-// Only this city's saves are candidates: a placed save counts when its place
-// is one of the city's or lies within the city's reach. Unplaced notes have no
-// city and stay. Distance is measured from you, else from the city's centre,
+// Only this city's placed saves are candidates (tonightSaves): a save counts
+// when its place is one of the city's or lies within the city's reach. A note
+// with no place yet stays on the Pile. Distance is measured from you, else from the city's centre,
 // so a save 280 km away is never tonight's pick.
 export default function useTonight({ cityId, places, placeById, saves, outings, ready, here, events, center, radiusKm = 10 }) {
   const [company, setCompany] = useState(null), [energy, setEnergy] = useState(null);
@@ -28,9 +27,7 @@ export default function useTonight({ cityId, places, placeById, saves, outings, 
   const result = useMemo(() => {
     if (!places.length) return null;
     const { saves: s, outings: o } = journal.current;
-    const reach = radiusKm + 15;
-    const local = s.filter((save) => !save.place || placeForOuting(save, places, placeById)
-      || (center && Number.isFinite(save.place.lat) && Number.isFinite(save.place.lng) && distance(center, save.place) <= reach));
+    const local = tonightSaves(s, { places, placeById, center, reach: radiusKm + 15 });
     return decideTonight({ saves: local, places, events, outings: o, exclude, seed, context: tonightContext({ now, location: here || center, companions: company, energy }) });
   }, [places, events, company, energy, exclude, seed, hereKey, now, ready]);
   const placeOf = (place) => placeForOuting({ place }, places, placeById);

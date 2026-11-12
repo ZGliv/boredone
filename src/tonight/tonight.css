@@ -25,11 +25,6 @@
   width: 100%; min-height: 48px; padding: 0; border: 0; border-top: var(--hair); background: none; color: var(--ink); text-align: left; cursor: pointer;
 }
 .tn-dock-name { font-size: var(--text-lg); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* An unplaced save is its own words: quoted and italic, as on the Pile. */
-.tn-quoted { font-style: italic; font-weight: 500; }
-.tn-quoted::before { content: "\201C"; }
-.tn-quoted::after { content: "\201D"; }
-.tn-dock-name.tn-quoted { display: block; }
 .tn-ic { color: var(--muted); }
 .tn-ic-blue { color: var(--blue); }
 .tn-dist { color: var(--muted); font-size: var(--text-sm); white-space: nowrap; }
@@ -44,6 +39,8 @@
 @media (max-width: 359px) { .tn-dials { grid-template-columns: 1fr; } }
 .tn-list { list-style: none; margin: 0; padding: 0; }
 .tn-pick { border-top: var(--hair); }
+.tn-dock-row, .tn-pick-head { transition: opacity var(--t-fast) var(--ease); }
+.tn-dock-row:active, .tn-pick-head:active { opacity: 0.6; }
 .tn-pick-head {
   display: grid; grid-template-columns: 36px 1fr auto; align-items: start; gap: var(--s3);
   width: 100%; padding: var(--s3) 0; border: 0; background: none; color: var(--ink); text-align: left; cursor: pointer;

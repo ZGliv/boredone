@@ -163,7 +163,7 @@
     "Includes Foursquare Open Source Places via Overture, Apache-2.0. © Foursquare Labs, Inc. (https://www.apache.org/licenses/LICENSE-2.0).",
     "Includes CC0-1.0 records (e.g. AllThePlaces) via Overture.",
     "Overture Maps Foundation places data, CDLA-Permissive-2.0 (https://cdla.dev/permissive-2-0/).",
-    "Neighbourhood boundaries from Overture divisions, derived from OpenStreetMap: © OpenStreetMap contributors, ODbL (https://www.openstreetmap.org/copyright)."
+    "Neighborhood boundaries from Overture divisions, derived from OpenStreetMap: © OpenStreetMap contributors, ODbL (https://www.openstreetmap.org/copyright)."
   ],
   "notice": "Open map data, not live venue information. Opening hours, prices and photos are not supplied.",
   "build": {

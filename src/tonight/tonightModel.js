@@ -7,7 +7,6 @@ import { distance } from "../recommendations.js";
 import { makeOuting, validateOuting } from "../model.js";
 import { saveToPlan } from "../saves.js";
 import { normalizeKind } from "../venues.js";
-import { saveTitle, sourceName } from "../pile/pile.js";
 
 const RESET_HOURS = 5;
 
@@ -86,6 +85,14 @@ const spotOf = (pick) => {
   return p && Number.isFinite(p.lat) && Number.isFinite(p.lng) ? p : null;
 };
 
+// The saves Tonight may pick from: only ones with a real place in this city,
+// its place one of the city's or within `reach` km of `center`. A note with
+// no place yet stays on the Pile; it is never one of tonight's three.
+export function tonightSaves(saves, { places = [], placeById = new Map(), center = null, reach = Infinity } = {}) {
+  return (saves || []).filter((save) => save?.place && (placeForOuting(save, places, placeById)
+    || (center && Number.isFinite(save.place.lat) && Number.isFinite(save.place.lng) && distance(center, save.place) <= reach)));
+}
+
 // One pick as the screen shows it. Reasons are decide's own words; the
 // distance moves to its own column and the kind line is not repeated.
 // placeOf(place) returns the city's record for a place a save or plan kept
@@ -95,11 +102,8 @@ export function pickView(pick, { location = null, placeOf = null } = {}) {
   const place = (own && placeOf?.(own)) || own;
   const event = pick.event || null;
   const save = pick.save || null;
-  // An unplaced save is named by its own words, quoted like on the Pile.
-  const quoted = !!save && !place && !!save.source?.text?.trim();
-  const title = event?.title || place?.name || (save ? saveTitle(save) : "");
-  // A bare link is already titled by where it came from; the line would repeat it.
-  const line = event ? (place ? place.name : event.venueName || "") : place ? placeLine(place) : save && quoted ? sourceName(save) : "";
+  const title = event?.title || place?.name || "";
+  const line = event ? (place ? place.name : event.venueName || "") : place ? placeLine(place) : "";
   const spot = spotOf(pick);
   const km = location && spot ? distance(location, spot) : null;
   const kindLine = place ? engineKindText(place).toLowerCase() : "";
@@ -109,10 +113,8 @@ export function pickView(pick, { location = null, placeOf = null } = {}) {
     .filter((r) => !(event && r === `At ${event.venueName}`))
     // "Guide entry updated 2024-12-22" is bookkeeping about the old guide, not a reason to go.
     .filter((r) => !/^Guide entry updated/.test(r))
-    // The line under the name already says where an unplaced save came from.
-    .map((r) => (/ · place still needs confirming$/.test(r) ? "Place not confirmed" : r))
     .map((text) => ({ text, tone: /^Saved|^Already in your plans|^At a place you saved/.test(text) ? "blue" : "" }));
-  return { id: pick.id, kind: pick.kind, title, quoted, line, km, distance: km == null ? "" : distanceText(km), reasons, place, event, save, spot, unplaced: !!save && !place };
+  return { id: pick.id, kind: pick.kind, title, line, km, distance: km == null ? "" : distanceText(km), reasons, place, event, save, spot };
 }
 
 // The plan already standing for this pick's venue, if any. A plan saved

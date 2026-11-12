@@ -36,7 +36,8 @@
 .board-hood-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .board-hood-count { color: var(--faint); font-size: var(--text-sm); }
 .board-hood-count.is-started { color: var(--ink); }
-.board-hoods button:hover .board-hood-name, .board-kinds button:hover .board-kind-name, .board-sets button:hover .board-set-name { text-decoration: underline; text-decoration-color: var(--line); text-underline-offset: 3px; }
+.board-hoods button, .board-kinds button, .board-sets button { transition: opacity var(--t-fast) var(--ease); }
+.board-hoods button:active, .board-kinds button:active, .board-sets button:active { opacity: 0.6; }
 
 /* Kinds */
 .board-kinds button { display: grid; grid-template-columns: 20px minmax(0, 11.5em) 1fr auto; align-items: center; gap: var(--s3); width: 100%; min-height: 44px; border-bottom: var(--hair); }

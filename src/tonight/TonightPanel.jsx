@@ -12,7 +12,7 @@ import "./tonight.css";
 //   tonight: useTonight(); mode/setMode; openId/setOpenId (the pick shown as a card)
 //   planOf(pick): the plan standing for the pick's venue, or null
 //   factOf(pick): a board fact for a pick decide gave no reason for
-//   onGo(pick), onDone(plan), onFind(pick), onHeight(px)
+//   onGo(pick), onDone(plan), onHeight(px)
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const WEEKDAY_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const weekdayOf = (day) => WEEKDAY_LONG[new Date(`${day}T12:00:00`).getDay()];
@@ -20,7 +20,7 @@ const when = (d) => `${WEEKDAY[d.getDay()]} ${d.getHours() % 12 || 12}:${String(
 const UP = { peek: "dock", dock: "open", open: "open" };
 const DOWN = { open: "dock", dock: "peek", peek: "peek" };
 
-export default function TonightPanel({ tonight, mode, setMode, openId, setOpenId, planOf, factOf, canEdit, onGo, onDone, onFind, onHeight }) {
+export default function TonightPanel({ tonight, mode, setMode, openId, setOpenId, planOf, factOf, canEdit, onGo, onDone, onHeight }) {
   const root = useRef(null), drag = useRef(null);
   const [offset, setOffset] = useState(0);
   const { picks } = tonight;
@@ -74,7 +74,7 @@ export default function TonightPanel({ tonight, mode, setMode, openId, setOpenId
             <li key={pick.id}>
               <button type="button" className="tn-dock-row" onClick={() => { setOpenId(pick.id); setMode("open"); }}>
                 <Icon name={pickIcon(pick)} size={20} className={pick.save ? "tn-ic-blue" : "tn-ic"} />
-                <span className={`tn-dock-name${pick.quoted ? " tn-quoted" : ""}`}>{pick.title}</span>
+                <span className="tn-dock-name">{pick.title}</span>
                 <span className="tn-dist t-tab">{pick.distance}</span>
               </button>
             </li>
@@ -103,7 +103,7 @@ export default function TonightPanel({ tonight, mode, setMode, openId, setOpenId
                   <button type="button" className="tn-pick-head" aria-expanded={open} onClick={() => setOpenId(open ? null : pick.id)}>
                     <span className={`tn-badge${pick.save ? " tn-badge-blue" : ""}${open ? " tn-badge-on" : ""}`}><Icon name={pickIcon(pick)} size={open ? 24 : 20} /></span>
                     <span className="tn-main">
-                      <span className={`tn-name${pick.quoted ? " tn-quoted" : ""}`}>{pick.title}</span>
+                      <span className="tn-name">{pick.title}</span>
                       {pick.line && <span className="tn-line">{pick.line}</span>}
                       {!open && reasons[0] && <span className={`tn-reason-lead${reasons[0].tone ? ` tn-${reasons[0].tone}` : ""}`}>{reasons[0].text}</span>}
                     </span>
@@ -118,11 +118,9 @@ export default function TonightPanel({ tonight, mode, setMode, openId, setOpenId
                         </ul>
                       )}
                       <div className="tn-actions">
-                        {pick.unplaced
-                          ? <Button variant="primary" iconAfter="forward" onClick={() => onFind(pick)}>Find the place</Button>
-                          : onDay
-                            ? (!later && <Button variant="primary" icon="check" disabled={!canEdit} onClick={() => onDone(plan)}>Done</Button>)
-                            : <Button variant="primary" disabled={!canEdit} onClick={() => onGo(pick)}>{later ? `Go ${weekdayOf(day)}` : "Go tonight"}</Button>}
+                        {onDay
+                          ? (!later && <Button variant="primary" icon="check" disabled={!canEdit} onClick={() => onDone(plan)}>Done</Button>)
+                          : <Button variant="primary" disabled={!canEdit} onClick={() => onGo(pick)}>{later ? `Go ${weekdayOf(day)}` : "Go tonight"}</Button>}
                         {pick.spot
                           ? <Button variant="quiet" icon="directions" href={directions({ ...pick.spot, name: pick.place?.name || pick.event?.venueName || pick.title, address: pick.place?.address || "" })}>Directions</Button>
                           : pick.event?.url ? <Button variant="quiet" icon="link" href={pick.event.url}>Event page</Button>
@@ -143,7 +141,5 @@ export default function TonightPanel({ tonight, mode, setMode, openId, setOpenId
 }
 
 function pickIcon(pick) {
-  if (pick.place) return kindIcon(pick.place.category);
-  if (pick.event) return "clock";
-  return pick.save?.source?.url ? "link" : "note";
+  return pick.place ? kindIcon(pick.place.category) : "clock";
 }

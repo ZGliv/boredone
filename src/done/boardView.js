@@ -37,11 +37,11 @@ export function setStanding(set, doneIds) {
   };
 }
 
-// Started, unfinished sets, closest to finished first.
+// Sets at least half done and not finished, closest to finished first.
 export function almostFinished(sets, doneIds, limit = 4) {
   return sets
     .map((set) => setStanding(set, doneIds))
-    .filter((s) => s.done > 0 && !s.complete)
+    .filter((s) => s.done > 0 && s.done * 2 >= s.goal && !s.complete)
     .sort((a, b) => a.remaining - b.remaining || b.done / b.goal - a.done / a.goal || a.name.localeCompare(b.name))
     .slice(0, limit);
 }
@@ -126,7 +126,8 @@ export function doneEffect({ board, doneIds, place, visitDate }) {
   return { placeId: hit, name: onBoard.name, isNew, done: after.size, before: doneIds.size, total: board.total, hood, set };
 }
 
-// "Polish Hill bars, 3 of 4" and the line under it.
+// "Polish Hill bars, 3 of 4" and the line under it. The line only says what
+// the tally does not: a bare "4 left" under "1 of 5" says it twice.
 export function effectLines(effect) {
   if (!effect?.isNew) return null;
   const { set, hood } = effect;
@@ -134,7 +135,8 @@ export function effectLines(effect) {
     const name = set.name, tally = `${set.done} of ${set.goal}`, head = `${name}, ${tally}`;
     if (set.complete) return { head, name, tally, tail: "Finished" };
     if (set.rule === "all" && set.left.length === 1) return { head, name, tally, tail: `${set.left[0].name} is the last one` };
-    return { head, name, tally, tail: leftText(set) };
+    const left = leftText(set);
+    return { head, name, tally, tail: /^\d+ left$/.test(left) ? "" : left };
   }
   if (hood) return { head: `${hood.name}, ${hood.done} of ${hood.total}`, name: hood.name, tally: `${hood.done} of ${hood.total}`, tail: hood.done === 1 ? `First in ${hood.name}` : "" };
   return null;

@@ -6,7 +6,7 @@
 // records an edition upgrade must not lose (see upgradeBoard).
 //
 // Pure module: no DOM, no clock. Dates come from the journal's visitDate.
-import { normalizeKind, venueGroup } from "./venues.js";
+import { VENUE_GROUPS, normalizeKind, venueGroup } from "./venues.js";
 import { validDate } from "./model.js";
 import { SYNONYMS, nameKey, nameSimilarity } from "./saveMatch.js";
 
@@ -21,6 +21,9 @@ export const COUNT_MILESTONES = [10, 25, 50, 100, 250];
 export const SET_MIN = 4;
 export const SET_MAX = 15;
 export const TASTE_GOAL = 5;
+// "Taste of" promises food and drink: places to eat, coffee and bars, not
+// nightclubs, arcades or theaters.
+const TASTE_KINDS = new Set([...VENUE_GROUPS.food, ...VENUE_GROUPS.coffee, ...VENUE_GROUPS.drinks].filter((kind) => kind !== "nightclub"));
 
 const GROUP_LABELS = {
   food: "places to eat",
@@ -331,8 +334,9 @@ export function generateSets(board) {
       if (list.length < SET_MIN || list.length > SET_MAX) continue;
       sets.push(makeSet(board, { key: `hood-${group}:${slug(hood)}`, name: `${hood} ${GROUP_LABELS[group]}`, rule: "all", goal: list.length, members: list, scope: { neighborhood: hood, group } }));
     }
-    if (members.length > TASTE_GOAL) {
-      sets.push(makeSet(board, { key: `taste:${slug(hood)}`, name: `Taste of ${hood}`, rule: "any", goal: TASTE_GOAL, members, scope: { neighborhood: hood } }));
+    const tastes = members.filter((place) => TASTE_KINDS.has(normalizeKind(place.kind)));
+    if (tastes.length > TASTE_GOAL) {
+      sets.push(makeSet(board, { key: `taste:${slug(hood)}`, name: `Taste of ${hood}`, rule: "any", goal: TASTE_GOAL, members: tastes, scope: { neighborhood: hood } }));
     }
   }
   for (const [kind, list] of kinds) {

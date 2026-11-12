@@ -286,7 +286,7 @@ export const LICENCE_NOTICES = {
  'CDLA-Permissive-2.0': 'Overture Maps Foundation places data, CDLA-Permissive-2.0 (https://cdla.dev/permissive-2-0/).',
  'Apache-2.0': 'Includes Foursquare Open Source Places via Overture, Apache-2.0. © Foursquare Labs, Inc. (https://www.apache.org/licenses/LICENSE-2.0).',
  'CC0-1.0': 'Includes CC0-1.0 records (e.g. AllThePlaces) via Overture.',
- ODbL: 'Neighbourhood boundaries from Overture divisions, derived from OpenStreetMap: © OpenStreetMap contributors, ODbL (https://www.openstreetmap.org/copyright).',
+ ODbL: 'Neighborhood boundaries from Overture divisions, derived from OpenStreetMap: © OpenStreetMap contributors, ODbL (https://www.openstreetmap.org/copyright).',
 };
 
 // For rows outside every neighbourhood boundary: the nearest point-only

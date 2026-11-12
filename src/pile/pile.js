@@ -49,10 +49,10 @@ const KIND_NAME = {
   youtube: { short: "Short", video: "video", profile: "channel" },
   tiktok: { profile: "profile" },
 };
-// What the save came from: "Instagram Reel", "TikTok", "eater.com", "Your note".
+// What the save came from: "Instagram Reel", "TikTok", "eater.com", "Note".
 export function sourceName(save) {
   const url = save?.source?.url || "";
-  if (!url) return "Your note";
+  if (!url) return "Note";
   const link = parseSaveUrl(url);
   if (link.app === "web" || link.app === "note") {
     try { return new URL(url).hostname.replace(/^(www|m)\./, ""); } catch { return "Link"; }

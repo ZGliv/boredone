@@ -27,7 +27,7 @@ test('sourceName and fromLine say where a save came from in plain words', () => 
   assert.equal(fromLine(makeSave({url: 'https://vm.tiktok.com/ZMabc/', now: at('2026-11-10T18:00:00Z')}), now), 'TikTok · Saved 2 days ago');
   assert.equal(fromLine(makeSave({url: 'https://maps.app.goo.gl/xyz', now}), now), 'Google Maps · Saved today');
   assert.equal(fromLine(makeSave({url: 'https://www.eater.com/maps/best-pittsburgh', now}), now), 'eater.com · Saved today');
-  assert.equal(fromLine(makeSave({text: 'ramen', now: at('2026-11-10T18:00:00Z')}), now), 'Your note · Saved 2 days ago');
+  assert.equal(fromLine(makeSave({text: 'ramen', now: at('2026-11-10T18:00:00Z')}), now), 'Note · Saved 2 days ago');
   assert.equal(sourceName(makeSave({url: 'https://youtube.com/shorts/abcdefgh', now})), 'YouTube Short');
 });
 
