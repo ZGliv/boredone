@@ -7,4 +7,5 @@ export { default as ProgressDots } from "./ProgressDots.jsx";
 export { default as Ring } from "./Ring.jsx";
 export { default as Sheet } from "./Sheet.jsx";
 export { ToastProvider, useToast } from "./Toast.jsx";
+export { ConfirmProvider, useConfirm } from "./Confirm.jsx";
 export { kindIcon } from "./icons.js";

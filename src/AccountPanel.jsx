@@ -11,7 +11,7 @@ export function syncLabel(account,sync){
   if(sync?.cleanup)return 'Photo removal waiting to sync';
   if(account.localOnly)return 'Using this device’s saved copy';
   if(account.error)return 'Sync needs attention';
-  if(['receiving','sending','removing','pending'].includes(account.phase))return 'Syncing your journal…';
+  if(['receiving','sending','removing','pending'].includes(account.phase))return 'Syncing';
   if(account.lastSyncedAt&&account.phase==='idle')return 'Synced with your account';
   return 'Saved on this device';
 }
@@ -27,7 +27,7 @@ export default function AccountPanel({account,library,onChanged,onExport}){
   }
   async function resolve(id,choice){await store.resolveConflict(id,choice,review.revision);setReview(await store.conflicts());await onChanged();}
   return <section className="settings-card account-panel" aria-label="Account and backup">
-    <h2>{account.owner?'Your account':'Take your memories with you'}</h2>
+    <h2 className="t-caps">Account</h2>
     {account.owner?<>
       <p className="account-email">{account.user?.email||'Signed in with Google'}</p>
       <p className="account-status" role="status">{syncLabel(account,library.sync)}</p>
@@ -42,12 +42,11 @@ export default function AccountPanel({account,library,onChanged,onExport}){
         {item.cloud&&<details><summary>See account version</summary><p>{displayDate(item.cloud.visitDate||item.cloud.planDate)}{item.cloud.with&&` · With ${item.cloud.with}`}</p><p>{item.cloud.notes}</p><div className="account-photo-strip">{item.cloud.photos.map((photo,i)=><img key={i} src={photo} alt={`Account version photo ${i+1}`}/>)}</div></details>}
         <div className="button-row">{item.local&&<button disabled={busy} onClick={()=>act(()=>resolve(item.id,'keep-both'))}>Keep my version as a copy</button>}<button className="secondary" disabled={busy} onClick={()=>act(async()=>{if(confirm('Replace this local version with the account version? Export your journal first to keep an extra copy.'))await resolve(item.id,'use-cloud');})}>{item.cloud?'Use account version':'Accept deletion'}</button></div>
       </div>)}
-      {!!guestCount&&<details className="quiet-details" open={copyOpen} onToggle={e=>setCopyOpen(e.currentTarget.open)}><summary>Bring this device’s saves</summary><p>{guestCount} saved {guestCount===1?'outing':'outings'} can be copied into this account, including photos and notes. Originals stay on this device. Different versions are kept as separate copies.</p><button disabled={busy} onClick={()=>act(copy)}>{busy?'Copying…':'Copy device saves to account'}</button></details>}
-      <p className="hint">Only completed visits and plans sync. Unfinished drafts stay on this device.</p>
-      <AccountRemovalControls account={account} library={library} onExport={onExport} busy={busy} act={act}/>
+      {!!guestCount&&<details className="quiet-details" open={copyOpen} onToggle={e=>setCopyOpen(e.currentTarget.open)}><summary>Copy this device’s journal</summary><p>{guestCount} {guestCount===1?'record':'records'}</p><button disabled={busy} onClick={()=>act(copy)}>{busy?'Copying':'Copy to account'}</button></details>}
+            <AccountRemovalControls account={account} library={library} onExport={onExport} busy={busy} act={act}/>
       </>}
-    </>:<><p>Sign in with Google to sync visits and photos between your devices. Your current saves stay here until you choose to copy them.</p><button disabled={busy||account.phase==='loading'} onClick={()=>act(account.signIn)}>{busy?'Opening Google…':'Continue with Google'}</button>{account.error&&<p className="notice error">{account.error}</p>}</>}
-    {!account.owner&&!!account.unfinishedRemovals&&<div className="account-removal-progress"><p>A previous account removal is not yet confirmed on this device.</p><button className="secondary" disabled={busy} onClick={()=>act(account.checkRemovals)}>Check removal status</button></div>}
+    </>:<><button disabled={busy||account.phase==='loading'} onClick={()=>act(account.signIn)}>{busy?'Opening Google':'Sign in with Google'}</button>{account.error&&<p className="notice error">{account.error}</p>}</>}
+    {!account.owner&&!!account.unfinishedRemovals&&<div className="account-removal-progress"><p>Account removal unconfirmed</p><button className="secondary" disabled={busy} onClick={()=>act(account.checkRemovals)}>Check removal status</button></div>}
     {account.removalNotice&&<p role="status">{account.removalNotice}</p>}
     {error&&error!==account.error&&<p className="notice error" role="alert">{error}</p>}{notice&&<p role="status">{notice}</p>}
   </section>;

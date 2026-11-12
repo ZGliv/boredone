@@ -21,6 +21,11 @@
 .btn-block { display: flex; width: 100%; }
 .btn-icon { width: var(--touch); min-height: var(--touch); padding: 0; border-color: transparent; color: var(--muted); }
 .btn-icon:hover:not(:disabled) { color: var(--ink); }
+.btn-quiet.btn-icon { width: 48px; min-height: 48px; border-color: var(--line); color: var(--ink); }
+.btn-danger { background: var(--ink); border-color: var(--ink); color: var(--body); }
+
+/* Confirm */
+.confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s2); margin-top: var(--s4); }
 
 /* Row */
 .row {
@@ -38,6 +43,16 @@
 .row-title { font-size: var(--text-lg); font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
 .row-detail { font-size: var(--text-sm); color: var(--muted); }
 .row-trail { font-size: var(--text-sm); color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+
+/* Fields: a caps label and a hairline. .field-inline shows its value as a
+   fact and lays a transparent native input (date) over the whole row. */
+.field { display: grid; gap: var(--s1); }
+.field > span, .field-label { font-size: var(--text-xs); font-weight: 600; letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
+.field-inline { position: relative; grid-template-columns: auto 1fr; align-items: center; column-gap: var(--s4); min-height: 52px; border-bottom: var(--hair); cursor: pointer; }
+.field-inline input { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; padding: 0; border: 0; opacity: 0; cursor: pointer; color-scheme: dark; }
+.field-inline:focus-within { outline: 2px solid var(--gold); outline-offset: 2px; }
+.field-fact { font-style: normal; font-size: var(--text-lg); font-weight: 600; text-align: right; }
+.field-fact.is-empty { color: var(--faint); font-weight: 400; }
 
 /* Segmented control */
 .segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: var(--hair); border-radius: var(--r-md); padding: 3px; gap: 3px; }
@@ -79,12 +94,12 @@
 }
 
 /* Toast */
-.toast-slot { position: fixed; z-index: 60; left: 0; right: 0; bottom: calc(var(--tabbar-h) + var(--safe-bottom) + var(--s3)); display: flex; justify-content: center; padding: 0 var(--gutter); pointer-events: none; }
+.toast-slot { position: fixed; z-index: 60; left: 0; right: 0; top: calc(var(--safe-top) + var(--s3)); display: flex; justify-content: center; padding: 0 var(--gutter); pointer-events: none; }
 .toast { display: flex; align-items: center; gap: var(--s4); max-width: 480px; min-height: 48px; padding: var(--s2) var(--s2) var(--s2) var(--s4); background: var(--ink); color: var(--body); border-radius: var(--r-md); font-size: var(--text-sm); font-weight: 600; pointer-events: auto; animation: toast-in var(--t-med) var(--ease); }
 .toast button { min-height: 36px; padding: 0 var(--s3); border: 0; border-radius: var(--r-sm); background: none; color: var(--body); font-weight: 700; text-decoration: underline; cursor: pointer; }
-@media (min-width: 900px) { .toast-slot { bottom: var(--s5); padding-left: var(--rail-w); } }
+@media (min-width: 900px) { .toast-slot { padding-left: var(--rail-w); } }
 
 @keyframes sheet-in { from { transform: translateY(100%); } }
 @keyframes fade-in { from { opacity: 0; } }
-@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(-8px); } }
 .toast:not(:has(button)) { padding-right: var(--s4); }

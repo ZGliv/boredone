@@ -9,6 +9,7 @@ const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:n
 // modal (default): scrim, focus trapped, focus returns to the opener on close.
 // modal={false}: the page behind stays usable (map sheets).
 // Render it only while open: {place && <Sheet onClose={...}>}.
+// children may be a function of close, for buttons that end the sheet.
 export default function Sheet({ title, label, onClose, modal = true, className = "", headerExtra, children }) {
   const sheet = useRef(null), drag = useRef(null), opener = useRef(null);
   const [offset, setOffset] = useState(0), [leaving, setLeaving] = useState(false);
@@ -68,7 +69,7 @@ export default function Sheet({ title, label, onClose, modal = true, className =
           <span className="sheet-handle" aria-hidden="true" />
           {(title || headerExtra) && <div className="sheet-title-row">{title && <h2 id={titleId} className="sheet-title">{title}</h2>}{headerExtra}</div>}
         </header>
-        <div className="sheet-body">{children}</div>
+        <div className="sheet-body">{typeof children === "function" ? children(close) : children}</div>
         <button type="button" className="sheet-close" onClick={close}>Close</button>
       </section>
     </div>,

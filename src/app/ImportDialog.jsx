@@ -1,19 +1,19 @@
 import React from "react";
-import { Modal } from "../Editor";
+import { Button, Sheet } from "../ui";
 
 export default function ImportDialog({ account, importing, importBusy, storageError, onClose, onExport, onRestore }) {
   return (
-    <Modal title="Import backup" onClose={onClose}>
-      <p className="t-tab">
+    <Sheet title="Import backup" onClose={importBusy ? () => {} : onClose} className="import-sheet">
+      <p className="import-facts t-tab">
         {account?.owner
           ? `${importing.count} records. Different versions are kept as copies.`
-          : `${importing.count} records: ${importing.added} new, ${importing.updated} updated.`}
+          : `${importing.count} records: ${importing.added} new, ${importing.updated} updated`}
       </p>
-      {storageError && <p className="notice error" role="alert">{storageError}</p>}
-      <div className="dialog-actions">
-        <button className="secondary" onClick={onExport}>Export first</button>
-        <button disabled={importBusy} onClick={onRestore}>{importBusy ? "Merging" : "Merge"}</button>
+      {storageError && <p className="page-status" role="alert">{storageError}</p>}
+      <div className="confirm-actions">
+        <Button variant="quiet" onClick={onExport}>Export first</Button>
+        <Button variant="primary" disabled={importBusy} onClick={onRestore}>{importBusy ? "Merging" : "Merge"}</Button>
       </div>
-    </Modal>
+    </Sheet>
   );
 }

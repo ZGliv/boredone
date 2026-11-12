@@ -7,7 +7,7 @@ import PilePage from "../pages/PilePage";
 import BoardPage from "../pages/BoardPage";
 import JournalPage from "../pages/JournalPage";
 import SettingsPage from "../pages/SettingsPage";
-import { ToastProvider, useToast } from "../ui";
+import { ConfirmProvider, ToastProvider, useConfirm, useToast } from "../ui";
 import { AppContext } from "./AppContext";
 import ImportDialog from "./ImportDialog";
 import TabBar from "./TabBar";
@@ -22,11 +22,11 @@ import "./shell.css";
 const PAGES = { map: MapPage, pile: PilePage, board: BoardPage, journal: JournalPage, settings: SettingsPage };
 
 export default function App(props) {
-  return <ToastProvider><Shell {...props} /></ToastProvider>;
+  return <ToastProvider><ConfirmProvider><Shell {...props} /></ConfirmProvider></ToastProvider>;
 }
 
 function Shell({ store = guestStore, account = null, accountError = "" }) {
-  const toast = useToast();
+  const toast = useToast(), confirm = useConfirm();
   const journal = useJournal(store, account);
   const { library, ready, canEdit, drafts, storageError, setStorageError, load } = journal;
   const outings = library.outings;
@@ -40,10 +40,10 @@ function Shell({ store = guestStore, account = null, accountError = "" }) {
   }, []);
   const navigate = useCallback((next) => {
     if (location.hash !== `#${next}`) location.hash = next;
-    setPage(next);
+    setPage(pageFromHash(`#${next}`));
     window.scrollTo(0, 0);
   }, []);
-  const actions = useOutingActions({ journal, account, setEditor, toast, navigate });
+  const actions = useOutingActions({ journal, account, setEditor, toast, confirm, navigate });
   const backup = useBackup({ store, account, journal, setMessage: toast });
   const saves = useMemo(() => outings.filter((o) => o.status === "saved").sort((a, b) => (b.source?.savedAt || b.createdAt).localeCompare(a.source?.savedAt || a.createdAt)), [outings]);
   const plans = useMemo(() => sortPlans(outings), [outings]);
@@ -55,7 +55,7 @@ function Shell({ store = guestStore, account = null, accountError = "" }) {
     places: city.places, placeById: city.placeById, states: city.states, board: city.board, progress: city.progress,
     outings, saves, plans, done, ready, canEdit, drafts,
     actions: { put: actions.put, remove: actions.remove, addPlan: actions.addPlan, saveVisit: actions.saveVisit, visit: actions.visit, edit: actions.edit, manual: actions.manual, openEditor: setEditor },
-    toast, account, backup, store, journal,
+    toast, confirm, account, backup, store, journal,
   };
   const Page = PAGES[page];
   return (

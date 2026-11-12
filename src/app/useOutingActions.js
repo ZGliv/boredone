@@ -5,14 +5,14 @@ import { outingLabel } from "../saves";
 // Writing the journal: saves, plans and memories. Recreated each render so
 // every handler sees the current library.
 //   put(outing)        insert or replace one record (saves, attaching a place, ...)
-//   remove(outing)     delete after a confirm; resolves true when removed
+//   remove(outing)     delete after a confirm sheet; resolves true when removed
 //   addPlan(place)     open the editor on a new (or the existing) plan
 //   saveVisit(place)   open the editor on a new memory dated today
 //   visit(outing)      open the editor turning a plan or save into a memory
 //   edit(outing)       open the editor on an existing plan or memory
 //   manual(memory)     open the editor on a blank plan or memory
 //   saveOuting(...)    the editor's own save; not for screens
-export default function useOutingActions({ journal, account, setEditor, toast, navigate }) {
+export default function useOutingActions({ journal, account, setEditor, toast, confirm, navigate }) {
   const { library, libraryRef, commit, setStorageError } = journal;
   async function saveOuting(outing, originalStamp, isNew, draftId, draftStamp) {
     const current = libraryRef.current.outings,
@@ -55,7 +55,7 @@ export default function useOutingActions({ journal, account, setEditor, toast, n
     setEditor({ isNew: false, outing });
   }
   async function remove(outing) {
-    if (!window.confirm(`Delete “${outingLabel(outing)}”${account?.owner ? " from every device" : ""}?`)) return false;
+    if (!(await confirm(`Delete ${outingLabel(outing)}${account?.owner ? " everywhere" : ""}?`))) return false;
     try {
       await commit(libraryRef.current.outings.filter((o) => o.id !== outing.id));
       toast("Deleted");

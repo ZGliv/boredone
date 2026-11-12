@@ -9,10 +9,17 @@ export const TABS = [
 ];
 export const PAGES = [...TABS.map((tab) => tab[0]), "settings"];
 const OLD = { find: "map", plans: "journal", memories: "journal" };
+// "#pile/<id>" lands on the Pile with <id> as its target (a place on the Map,
+// a save on the Pile).
 export function pageFromHash(hash = location.hash) {
-  const value = hash.slice(1);
+  const value = hash.slice(1).split("/")[0];
   return PAGES.includes(value) ? value : OLD[value] || "map";
 }
+export function hashTarget(hash = location.hash) {
+  const [, id = ""] = hash.slice(1).split(/\/(.*)/s);
+  try { return decodeURIComponent(id); } catch { return ""; }
+}
+export const targetHash = (page, id) => `${page}/${encodeURIComponent(id)}`;
 export function download(data,limit=MAX_BACKUP_BYTES) {
   const blob = new Blob([JSON.stringify(data, null, 2)], {
     type: "application/json",

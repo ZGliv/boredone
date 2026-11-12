@@ -25,7 +25,8 @@ import { createContext, useContext } from "react";
 //   actions               {put, remove, addPlan, saveVisit, visit, edit, manual,
 //                         openEditor({outing, isNew, recovery}) for drafts}
 //                         (src/app/useOutingActions.js)
-//   toast(text, {action}) one-line confirmation above the tab bar
+//   toast(text, {action}) one-line confirmation at the top of the screen
+//   confirm(title, {action}) a sheet asking yes/no; resolves true on the action
 // Settings plumbing: account, backup, store, journal, drafts
 export const AppContext = createContext(null);
 export function useApp() {
