@@ -1,0 +1,80 @@
+BEGIN:VCALENDAR
+X-BOREDONE-RECORDED-FROM:https://shadyave.com/events/month/?ical=1
+X-BOREDONE-RECORDED-AT:2026-11-12T00:03:58Z
+X-BOREDONE-NOTE:Recorded with one GET for parser tests. Not served to users.
+VERSION:2.0
+PRODID:-//Shady Ave - ECPv6.15.20//NONSGML v1.0//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Shady Ave
+X-ORIGINAL-URL:https://shadyave.com
+X-WR-CALDESC:Events for Shady Ave
+REFRESH-INTERVAL;VALUE=DURATION:PT1H
+X-Robots-Tag:noindex
+X-PUBLISHED-TTL:PT1H
+BEGIN:VTIMEZONE
+TZID:America/New_York
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+TZNAME:EDT
+DTSTART:20250309T070000
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+TZNAME:EST
+DTSTART:20251102T060000
+END:STANDARD
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+TZNAME:EDT
+DTSTART:20260308T070000
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+TZNAME:EST
+DTSTART:20261101T060000
+END:STANDARD
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+TZNAME:EDT
+DTSTART:20270314T070000
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+TZNAME:EST
+DTSTART:20271107T060000
+END:STANDARD
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+TZNAME:EDT
+DTSTART:20280312T070000
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+TZNAME:EST
+DTSTART:20281105T060000
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+DTSTART;TZID=America/New_York:20260502T080000
+DTEND;TZID=America/New_York:20270103T170000
+DTSTAMP:20261111T190359
+CREATED:20260420T030424Z
+LAST-MODIFIED:20260420T030424Z
+UID:61073-1777708800-1798995600@shadyave.com
+SUMMARY:59th Carnegie International – If the word we
+DESCRIPTION:59th Carnegie International – If the word we \nPresented by: Carnegie Museum of Art\nDates: May 2\, 2026 – January 3\, 2027\nLocation: Carnegie Museum of Art\, 4400 Forbes Avenue\, Pittsburgh\, PA 15213\, and four partner locations across the city\nAdmission: Included with museum admission \nAbout the Exhibition: \nContemporary artists from around the world bring new work to the vaunted Carnegie International\, Pittsburgh’s signature show. Organized every four years\, the Carnegie International is the longest‑running exhibition of international art in North America . \nThe 59th edition\, titled If the word we\, is the most collaborative and far‑reaching to date. Curated by Ryan Inouye\, Danielle A. Jackson\, and Liz Park\, the exhibition features 61 artists and collectives from around the world—including a record 36 newly commissioned works created specifically for the show . \nThe title is drawn from a commissioned catalogue essay by writer Haytham el‑Wardany. It approaches the first‑person plural “we” as an open and evolving proposition—shaped by listening\, translation\, and transformation—rather than a unified subject. \nFind more information here! \nFind more events going on in Pittsburgh here!
+URL:https://shadyave.com/event/59th-carnegie-international-if-the-word-we/
+LOCATION:Carnegie Museum of Art\, 4400 Forbes Avenue\, Pittsburgh\, Pennsylvania\, 15222\, United States
+CATEGORIES:Arts & Culture
+ATTACH;FMTTYPE=image/png:https://shadyave.com/wp-content/uploads/2026/04/Screenshot-2026-04-19-at-11.02.42-PM.png
+END:VEVENT
+END:VCALENDAR
