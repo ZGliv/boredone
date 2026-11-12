@@ -69,6 +69,17 @@ export const MIN_CONFIDENCE = 0.5;
 const LEGAL_ENTITY = /\b(inc|llc|l\.l\.c|llp|corp|corporation|ltd)\.?$/i;
 export const isLegalEntityName = name => LEGAL_ENTITY.test(String(name || '').trim());
 
+// Overture almost never files chains under fast_food_restaurant: McDonald's is
+// a burger_restaurant, Subway a sandwich_shop. So fast food is also caught by
+// brand. Coffee chains (Starbucks, Dunkin') are deliberately not on this list.
+const FAST_FOOD = /^(mcdonalds|burger king|wendys|taco bell|kfc|kentucky fried chicken|subway|popeyes|arbys|jimmy johns|dominos|papa johns|pizza hut|little caesars|chick fil a|sonic drive in|dairy queen|hardees|carls jr|jack in the box|white castle|long john silvers|checkers|rallys|wingstop|charleys (philly|cheesesteaks)|jersey mikes|firehouse subs|panda express|del taco|culvers|whataburger|raising canes)\b/;
+export const isFastFoodChain = row => [row?.name, row?.brand].some(n => FAST_FOOD.test(normalizeName(n)));
+
+// One-off events and prizes that Overture files as venues ("Deutschtown Music
+// Festival", "Gene Kelly Awards ...") are not places you can go to.
+const EVENT_NAME = /\b(festival|awards?)\b/i;
+export const isEventName = name => EVENT_NAME.test(String(name || ''));
+
 export function normalizeName(name) {
  return String(name || '')
   .normalize('NFKD').replace(/[̀-ͯ]/g,'')
@@ -121,6 +132,8 @@ export function rejectReason(row, center, radiusKm, minConfidence = MIN_CONFIDEN
  if (!Number.isFinite(row.lat) || !Number.isFinite(row.lng)) return 'no_location';
  if (distanceKm(center, row) > radiusKm) return 'outside_radius';
  if (!kindFor(row)) return 'not_going_out';
+ if (isFastFoodChain(row)) return 'fast_food_chain';
+ if (isEventName(row.name)) return 'event_not_venue';
  if (CLOSED_STATUSES.has(row.operating_status)) return 'closed';
  if (!Number.isFinite(row.confidence) || row.confidence < minConfidence) return 'low_confidence';
  if (isLegalEntityName(row.name)) return 'legal_entity_name';
@@ -155,6 +168,10 @@ const words = name => normalizeName(name).split(' ').filter(Boolean).map(w => SP
 // Spaces removed, so "Mc Ardle's" = "Mcardle's" and "Cafe 412" = "Cafe412".
 const compact = name => words(name).join('');
 const core = name => words(name).filter(w => !GENERIC.has(w)).join('');
+// Kind words are left out only when judging typos, never for exact core
+// equality, where they keep "Steel City Pizza" apart from "Steel City Coffee".
+const KIND_WORDS = new Set(['nightclub','night','club','theater','pizza','pizzeria','bistro','diner','grille','saloon','brewery','brewing','bakery','steakhouse']);
+const typoCore = name => words(name).filter(w => !GENERIC.has(w) && !KIND_WORDS.has(w)).join('');
 
 function editDistanceAtMost(a, b, max) {
  if (Math.abs(a.length - b.length) > max) return false;
@@ -181,7 +198,11 @@ export function sameName(a, b) {
  if (cx.length >= 4 && cx === cy) return true;
  const [short, long] = x.length <= y.length ? [x, y] : [y, x];
  if (short.length >= 6 && long.startsWith(short)) return true;
- if (short.length >= 10 && editDistanceAtMost(x, y, 2)) return true;
+ // The typo must also be small within the distinctive words, or "Cake
+ // Nightclub" and "Cavo Night Club" look like one venue.
+ const tx0 = typoCore(a), ty0 = typoCore(b);
+ if (short.length >= 10 && editDistanceAtMost(x, y, 2) &&
+  editDistanceAtMost(tx0, ty0, Math.max(1, Math.floor(Math.min(tx0.length, ty0.length) / 5)))) return true;
  const tx = new Set(words(a).filter(t => t.length > 1)), ty = new Set(words(b).filter(t => t.length > 1));
  const shared = [...tx].filter(t => ty.has(t) && !GENERIC.has(t)).length;
  return shared >= 2 && shared / Math.max(1, Math.min(tx.size, ty.size)) >= 0.75;

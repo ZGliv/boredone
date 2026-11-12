@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {validatePlace} from '../src/model.js';
 import {VENUE_KINDS} from '../src/venues.js';
-import {kindFor, rejectReason, normalizeName, sameName, mergeDuplicates, withNearestNeighborhood, buildPack, bboxFor, toPlace, isLegalEntityName} from '../scripts/city-pack/mapping.mjs';
+import {kindFor, rejectReason, normalizeName, sameName, mergeDuplicates, withNearestNeighborhood, buildPack, bboxFor, toPlace, isLegalEntityName, isFastFoodChain, isEventName} from '../scripts/city-pack/mapping.mjs';
 import {compareGuide} from '../scripts/city-pack/compare.mjs';
 
 const center = {lat: 40.44, lng: -80};
@@ -100,6 +100,47 @@ test('buildPack writes a header with counts, licences and only venue kinds', () 
  assert.deepEqual(pack.counts.rejected, {not_going_out: 1, closed: 1});
  assert.ok(pack.licences.some(l => l.includes('Apache-2.0')) && pack.licences.some(l => l.includes('ODbL')));
  assert.equal(pack.release, '2026-10-21.0');
+});
+
+test('fast-food chains are rejected even when Overture files them under an ordinary restaurant kind', () => {
+ // Real Pittsburgh rows: McDonald's is a burger_restaurant, Subway a sandwich_shop.
+ const burger = {taxonomy_primary: 'burger_restaurant', taxonomy_hierarchy: ['food_and_drink', 'restaurant', 'meat_restaurant', 'burger_restaurant'], basic_category: 'restaurant'};
+ assert.equal(rejectReason(row({name: "McDonald's", ...burger}), center, 5), 'fast_food_chain');
+ assert.equal(rejectReason(row({name: 'Burger King Restaurants', ...burger}), center, 5), 'fast_food_chain');
+ assert.equal(rejectReason(row({name: 'SUBWAY', taxonomy_primary: 'sandwich_shop', basic_category: 'casual_eatery'}), center, 5), 'fast_food_chain');
+ assert.equal(rejectReason(row({name: 'Pizza on Penn', brand: "Domino's", taxonomy_primary: 'pizza_restaurant', taxonomy_hierarchy: ['food_and_drink', 'restaurant', 'pizza_restaurant']}), center, 5), 'fast_food_chain');
+ // Local places that merely share a word stay; coffee chains are a separate decision and stay.
+ assert.equal(rejectReason(row({name: 'Burgatory', ...burger}), center, 5), null);
+ assert.equal(rejectReason(row({name: 'Starbucks'}), center, 5), null);
+});
+
+test('events and prizes filed as venues are rejected', () => {
+ assert.equal(rejectReason(row({name: 'Deutschtown Music Festival', taxonomy_primary: 'music_venue'}), center, 5), 'event_not_venue');
+ assert.equal(rejectReason(row({name: 'Gene Kelly Awards for Excellence in High School Musical Theater', taxonomy_primary: 'theatre_venue'}), center, 5), 'event_not_venue');
+ assert.equal(rejectReason(row({name: 'Stage AE', taxonomy_primary: 'music_venue'}), center, 5), null);
+ assert.equal(rejectReason(row({name: 'Regatta Bar & Grill', taxonomy_primary: 'bar'}), center, 5), null);
+ assert.equal(rejectReason(row({name: "Charley's Place", taxonomy_primary: 'bar'}), center, 5), null);
+});
+
+test('a two-letter typo inside the distinctive word is a different venue, not a duplicate', () => {
+ // Found in the Pittsburgh comparison: both are guide nightclubs.
+ assert.equal(sameName('Cake Nightclub', 'Cavo Night Club'), false);
+ const {kept} = mergeDuplicates([row({id: 'a', name: 'Cake Nightclub'}), row({id: 'b', name: 'Cavo Night Club', lat: 40.4402})]);
+ assert.equal(kept.length, 2);
+ // Real typos still match.
+ assert.ok(sameName('Bangal Kebab House & Restaurant', 'Bengal Kabab House & Restaurant'));
+ assert.ok(sameName('Asian Tea House', 'Asia Tea House'));
+ assert.ok(sameName("Wilson's BBq", "Wilson's Bar-B-Q"));
+ assert.ok(sameName('Layal cafe & restaurant', 'Layali Cafe & Restaurant'));
+});
+
+test('committed city packs contain no fast-food chains or event names', () => {
+ const dir = new URL('../data/city-packs/', import.meta.url);
+ for (const file of readdirSync(dir).filter(f => f.endsWith('.json'))) {
+  const pack = JSON.parse(readFileSync(new URL(file, dir), 'utf8'));
+  const bad = pack.places.filter(p => isFastFoodChain(p) || isEventName(p.name)).map(p => p.name);
+  assert.deepEqual(bad, [], file);
+ }
 });
 
 test('bounding box covers the radius', () => {

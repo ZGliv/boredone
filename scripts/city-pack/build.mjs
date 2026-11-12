@@ -4,6 +4,9 @@
 //   node scripts/city-pack/build.mjs columbus        # one city
 //   node scripts/city-pack/build.mjs --reuse ...     # reuse the cached raw download
 //
+// To add a city, append to cities.json:
+//   {"slug": "erie", "name": "Erie, PA", "center": {"lat": 42.1292, "lng": -80.0851}, "radiusKm": 5}
+//
 // Needs uv (https://docs.astral.sh/uv/) for the DuckDB fetch step. No keys.
 // Raw downloads are cached outside the repo (BOREDONE_CITY_PACK_CACHE or the
 // system temp dir); packs are written to data/city-packs/<slug>.json.
