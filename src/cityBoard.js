@@ -47,6 +47,8 @@ const KIND_PLURALS = {
 };
 export const kindPlural = (kind) => KIND_PLURALS[kind] || `${kind.replace(/_/g, " ")}s`;
 
+// Letters and digits from any script are kept, so "匹夫小馆" or "Кофейня"
+// can match by name in any city; only Latin accents are folded away.
 export function normalizeName(name = "") {
   return String(name)
     .normalize("NFKD")
@@ -55,7 +57,7 @@ export function normalizeName(name = "") {
     .replace(/\([^)]*\)/g, " ")
     .replace(/&/g, " and ")
     .replace(/['’`]/g, "")
-    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/[^\p{L}\p{M}\p{N}]+/gu, " ")
     .trim()
     .replace(/^the /, "");
 }
@@ -355,8 +357,8 @@ export function milestones(board, outings = []) {
     if (p.complete) add({ id: `set:${set.id}`, type: "set-complete", label: `Completed ${set.name}`, date: p.completedOn, edition: board.edition });
   }
   for (const honor of board.honors || []) {
-    const id = honor.type === "set" ? `set:${honor.key}` : honor.type === "kind" ? `kind:${honor.key}` : `neighborhood:${slug(honor.key)}`;
-    const type = honor.type === "set" ? "set-complete" : honor.type === "kind" ? "kind-complete" : "neighborhood-complete";
+    const id = honor.type === "set" ? `set:${honor.key}` : honor.type === "kind" ? `kind:${honor.key}` : honor.type === "first" ? `first:${slug(honor.key)}` : `neighborhood:${slug(honor.key)}`;
+    const type = honor.type === "set" ? "set-complete" : honor.type === "kind" ? "kind-complete" : honor.type === "first" ? "first-in-neighborhood" : "neighborhood-complete";
     add({ id, type, label: honor.label, date: honor.earnedOn, edition: honor.edition });
   }
   return [...out.values()].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
@@ -375,24 +377,41 @@ export function milestones(board, outings = []) {
 //    that completion is written down as an honor with the date and edition it
 //    was earned in. A new edition adding places to that neighborhood shows the
 //    new remaining count, but the area stays marked as completed.
+//  - Your first place in a neighborhood is kept the same way, so it survives
+//    that place closing or moving to another neighborhood.
+//  - Completions are judged against the edition in force. If the only place
+//    you had not done in a neighborhood closes, the new edition shows that
+//    neighborhood as finished, dated by your last visit there.
+//  - Honors written down at an upgrade stay even if you later delete the
+//    memories behind them; current progress and retired places recompute.
 //  - Nothing here deletes or edits journal records.
 export function upgradeBoard(oldBoard, newBoard, outings = []) {
   if (oldBoard.cityId !== newBoard.cityId) throw new Error("Cannot upgrade a board to a different city.");
-  const { current: oldEarned } = earnedOn(oldBoard, outings);
+  const { current: oldEarned, retired: oldRetiredEarned } = earnedOn(oldBoard, outings);
   const newNames = new Map();
   for (const place of newBoard.places) {
     const key = normalizeName(place.name);
+    if (!key) continue;
     if (!newNames.has(key)) newNames.set(key, []);
     newNames.get(key).push(place);
   }
-  const stillListed = (place) => newBoard.placeIndex[place.id] !== undefined ||
-    (newNames.get(normalizeName(place.name)) || []).some((p) => distanceM(p, place) <= MATCH_RADIUS_M);
+  const outingById = new Map(outings.filter((o) => o && o.id).map((o) => [o.id, o]));
+  // A place you earned is still listed only if the visit that earned it would
+  // still be credited on the new edition; otherwise it retires, so a city pack
+  // that shifts coordinates can never quietly erase a visit.
+  const stillListed = (place, hit) => {
+    if (newBoard.placeIndex[place.id] !== undefined) return true;
+    const outing = hit && outingById.get(hit.outingId);
+    if (outing) return matchVisits(newBoard.places, [outing]).size > 0;
+    const key = normalizeName(place.name);
+    return !!key && (newNames.get(key) || []).some((p) => distanceM(p, place) <= MATCH_RADIUS_M);
+  };
 
   const retired = new Map();
-  for (const place of oldBoard.retired || []) if (!stillListed(place)) retired.set(place.id, place);
+  for (const place of oldBoard.retired || []) if (!stillListed(place, oldRetiredEarned.get(place.id))) retired.set(place.id, place);
   for (const [id, hit] of oldEarned) {
     const place = placeOf(oldBoard, id);
-    if (stillListed(place) || retired.has(id)) continue;
+    if (stillListed(place, hit) || retired.has(id)) continue;
     const { id: pid, name, lat, lng, category, kind, neighborhood, address, website, source, sourceUrl } = place;
     retired.set(id, { id: pid, name, lat, lng, category, kind, neighborhood, address, website, source, sourceUrl, retiredFrom: oldBoard.edition, visitDate: hit.visitDate });
   }
@@ -404,6 +423,7 @@ export function upgradeBoard(oldBoard, newBoard, outings = []) {
   };
   const hoods = tally(oldBoard, oldEarned, (p) => p.neighborhood);
   for (const [name, row] of hoods) {
+    if (name !== ELSEWHERE && row.done) keep({ type: "first", key: name, label: `First place in ${name}`, earnedOn: row.dates.sort()[0], edition: oldBoard.edition });
     if (name !== ELSEWHERE && row.total && row.done === row.total) keep({ type: "neighborhood", key: name, label: `Finished ${name}`, earnedOn: row.dates.sort()[row.dates.length - 1], edition: oldBoard.edition });
   }
   const kinds = tally(oldBoard, oldEarned, (p) => p.kind);

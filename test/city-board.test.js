@@ -431,6 +431,75 @@ test("upgrading to another city is refused", () => {
   assert.throws(() => upgradeBoard(board(), other, []));
 });
 
+// ---- Review regressions ----
+
+// A synthetic venue shaped like the shared place contract, for cases the
+// Pittsburgh data cannot express (non-Latin names, moved coordinates).
+const spot = (id, name, lat, lng, neighborhood) => ({ id, name, lat, lng, category: "cafe", address: "", website: "", source: "test", sourceUrl: "", hours: "", fee: "", access: "", distanceKm: 0, ...(neighborhood ? { neighborhood } : {}) });
+const tiny = (edition, places) => makeBoard({ cityId: "anywhere", cityName: "Anywhere", edition, builtAt: "", places });
+
+test("name matching works for names written in any script", () => {
+  assert.notEqual(normalizeName("匹夫小馆"), "");
+  assert.notEqual(normalizeName("匹夫小馆"), normalizeName("Кофейня"));
+  assert.equal(normalizeName("Straße Café"), "straße cafe");
+  assert.equal(normalizeName("PF BBQ House - 匹夫小馆"), "pf bbq house 匹夫小馆");
+  const pack = spot("pack-1", "匹夫小馆", 40.45, -79.95);
+  assert.equal(matchVisits([pack], [visit({ ...pack, id: "ofm-1" }, "2026-01-01")]).size, 1);
+});
+
+test("an upgrade never erases a visit to a place whose name has no Latin letters", () => {
+  const cafe = spot("ofm-1", "匹夫小馆", 40.45, -79.95);
+  const rows = [visit(cafe, "2026-01-01")];
+  const v2 = upgradeBoard(tiny("1", [cafe]), tiny("2", [spot("pack-9", "Кофейня", 40.4505, -79.95)]), rows);
+  const p = boardProgress(v2, rows);
+  assert.equal(p.done + p.retired, 1);
+});
+
+test("an upgrade that shifts a venue's coordinates keeps the visit counted", () => {
+  // Journal point, old pack point ~100 m north, new pack point ~100 m further:
+  // each pair is within 120 m, but the journal is ~200 m from the new point.
+  const journal = spot("ofm-1", "Gamma", 40.46, -79.96);
+  const rows = [visit(journal, "2026-03-01")];
+  const v1 = tiny("1", [spot("pack-1", "Gamma", 40.4609, -79.96)]);
+  assert.equal(boardProgress(v1, rows).done, 1);
+  const v2 = upgradeBoard(v1, tiny("2", [spot("pack2-1", "Gamma", 40.4618, -79.96)]), rows);
+  const p = boardProgress(v2, rows);
+  assert.equal(p.done + p.retired, 1);
+  assert.equal(milestones(v2, rows).length, 0, "no milestone is invented either");
+});
+
+test("totals the user earned never drop when editions go back and forth", () => {
+  const a = spot("a", "Alpha", 40.46, -79.96);
+  const b = spot("b", "Beta", 40.47, -79.97);
+  const rows = [visit(a, "2026-02-01"), visit(b, "2026-02-02")];
+  let current = tiny("1", [a, b]);
+  for (const next of [tiny("2", [a]), tiny("1", [a, b]), tiny("2", [a]), tiny("3", [])]) {
+    current = upgradeBoard(current, next, rows);
+    const p = boardProgress(current, rows);
+    assert.equal(p.done + p.retired, 2, `edition ${current.edition}`);
+  }
+});
+
+test("first place in a neighborhood survives that place closing or moving", () => {
+  const a = spot("a", "Alpha", 40.46, -79.96, "Lawrenceville");
+  const b = spot("b", "Beta", 40.461, -79.961, "Lawrenceville");
+  const rows = [visit(a, "2026-02-01")];
+  const closed = upgradeBoard(tiny("1", [a, b]), tiny("2", [b]), rows);
+  const first = milestones(closed, rows).find((m) => m.id === "first:lawrenceville");
+  assert.deepEqual([first?.date, first?.edition], ["2026-02-01", "1"]);
+  const moved = upgradeBoard(tiny("1", [a, b]), tiny("2", [{ ...a, neighborhood: "Bloomfield" }, b]), rows);
+  assert.ok(milestones(moved, rows).some((m) => m.id === "first:lawrenceville"));
+});
+
+test("an empty board shows nothing and invents nothing", () => {
+  const empty = tiny("1", []);
+  const rows = [visit(real(LV_COFFEE[0]), "2026-01-01")];
+  assert.deepEqual([boardProgress(empty, rows).done, boardProgress(empty, rows).percent], [0, 0]);
+  assert.deepEqual(generateSets(empty), []);
+  assert.deepEqual(milestones(empty, rows), []);
+  assert.deepEqual(nextUp(empty, rows), []);
+});
+
 // ---- Next up ----
 
 test("nextUp points at the nearest undone place in the closest-to-finished set", () => {
