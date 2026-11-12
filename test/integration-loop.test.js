@@ -71,7 +71,8 @@ const nyDate = ms => { const p = nyParts(ms); return `${p.year}-${p.month}-${p.d
 const dayGap = (later, earlier) => Math.round((Date.parse(later + 'T12:00:00Z') - Date.parse(earlier + 'T12:00:00Z')) / 86400000);
 const sessionDate = ms => nyDate(ms - 5 * 3600000);
 const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const dayLabel = (date, now) => `${Number(date.slice(8))} ${MON[Number(date.slice(5, 7)) - 1]}${date.slice(0, 4) === nyDate(now).slice(0, 4) ? '' : ` ${date.slice(0, 4)}`}`;
+const dayLabel = (date, now) => `${MON[Number(date.slice(5, 7)) - 1]} ${Number(date.slice(8))}${date.slice(0, 4) === nyDate(now).slice(0, 4) ? '' : `, ${date.slice(0, 4)}`}`;
+const feltLabel = rating => rating >= 5 ? 'loved' : 'liked';
 const clockLabel = ms => { const p = nyParts(ms), h = Number(p.hour); return `${h % 12 || 12}:${p.minute} ${h < 12 ? 'am' : 'pm'}`; };
 const ageLabel = days => days === 0 ? 'today' : days === 1 ? 'yesterday' : days < 14 ? `${days} days ago` : days < 60 ? `${Math.floor(days / 7)} weeks ago` : days < 365 ? `${Math.min(11, Math.floor(days / 30))} month${Math.floor(days / 30) === 1 ? '' : 's'} ago` : days < 730 ? 'a year ago' : `${Math.floor(days / 365)} years ago`;
 const isVenue = (a, b) => !!a && !!b && (a.id === b.id || !!sameVenue(a, [b]));
@@ -99,7 +100,7 @@ function assertBacked(pick, {location = DOWNTOWN, now = nowMs, outings = [], sav
       assert.ok(gap > 0 && gap <= 9, reason);
     } else if ((m = /^Ends (tomorrow|in (\d+) days)$/.exec(reason))) {
       assert.equal(dayGap(src.expiresAt, sessionDate(now)), m[2] ? Number(m[2]) : 1);
-    } else if ((m = /^On (\w+day) (\d+ \w{3}(?: \d{4})?)$/.exec(reason))) {
+    } else if ((m = /^On (\w+day), (\w{3} \d+(?:, \d{4})?)$/.exec(reason))) {
       assert.equal(m[1], nyParts(Date.parse(src.eventDate + 'T12:00:00-05:00')).weekday);
       assert.equal(m[2], dayLabel(src.eventDate, now));
       assert.ok(src.eventDate > sessionDate(now), 'a day other than tonight');
@@ -127,14 +128,17 @@ function assertBacked(pick, {location = DOWNTOWN, now = nowMs, outings = [], sav
       const last = visitsHere.map(o => o.visitDate).sort().at(-1);
       assert.ok(last, `${reason}: there is a visit to ${place.name}`);
       assert.equal(m[1], ageLabel(dayGap(nyDate(now), last)));
-    } else if ((m = /^You rated it (\d) last time$/.exec(reason))) {
+    } else if ((m = /^You (loved|liked) it last time$/.exec(reason))) {
       const rated = visitsHere.filter(o => o.rating > 0).sort((a, b) => a.visitDate.localeCompare(b.visitDate)).at(-1);
-      assert.equal(rated?.rating, Number(m[1]), reason);
-    } else if ((m = /^You rated (.+) (\d) last time$/.exec(reason))) {
-      assert.equal(m[1], ev.venueName);
-      assert.equal(visitsHere.filter(o => o.rating > 0).sort((a, b) => a.visitDate.localeCompare(b.visitDate)).at(-1)?.rating, Number(m[2]));
-    } else if ((m = /^Like (.+), which you rated (\d)$/.exec(reason))) {
-      const liked = outings.find(o => o.status === 'visited' && o.place.name === m[1] && o.rating === Number(m[2]));
+      assert.ok(rated?.rating >= 4, reason);
+      assert.equal(feltLabel(rated.rating), m[1], reason);
+    } else if ((m = /^You (loved|liked) (.+) last time$/.exec(reason))) {
+      assert.equal(m[2], ev.venueName);
+      const rated = visitsHere.filter(o => o.rating > 0).sort((a, b) => a.visitDate.localeCompare(b.visitDate)).at(-1);
+      assert.ok(rated?.rating >= 4, reason);
+      assert.equal(feltLabel(rated.rating), m[1], reason);
+    } else if ((m = /^Like (.+), which you (loved|liked)$/.exec(reason))) {
+      const liked = outings.find(o => o.status === 'visited' && o.place.name === m[1] && o.rating >= 4 && feltLabel(o.rating) === m[2]);
       assert.ok(liked, reason);
       assert.equal(normalizeKind(liked.place.category), normalizeKind(place.category), 'same kind of place');
     } else if (reason === 'At a place you saved') {
@@ -240,7 +244,7 @@ test('the loop: save, resolve, decide, plan, visit, board, decide again', t => {
   // The recorded Carnegie International (May to January, no coordinates) is
   // in the pool as a run, never "on now", and its unknown distance is said.
   const exhibition = rest.pool && decideTonight({events: events.filter(e => e.venueName === 'Carnegie Museum of Art'), context, seed: 0});
-  assert.equal(exhibition.picks[0].reasons[0], 'Runs until 3 Jan 2027');
+  assert.equal(exhibition.picks[0].reasons[0], 'Runs until Jan 3, 2027');
   assertBacked(exhibition.picks[0]);
   assert.ok(exhibition.explain.notes.some(n => /distance is unknown/.test(n)));
 
@@ -377,7 +381,7 @@ test('an event at a pack venue links to it: saved venue, rating and low-rating e
   for (const pick of r.picks) assertBacked(pick, {saves: [saved]});
   const fan = [visitTo(oldHall, '2026-10-20', 5)];
   const rated = decideTonight({events: [show], outings: fan, context, seed: 0});
-  assert.ok(rated.picks[0].reasons.includes('You rated Heinz Hall for the Performing Arts 5 last time'), rated.picks[0].reasons.join(' / '));
+  assert.ok(rated.picks[0].reasons.includes('You loved Heinz Hall for the Performing Arts last time'), rated.picks[0].reasons.join(' / '));
   assertBacked(rated.picks[0], {outings: fan});
   assert.equal(decideTonight({events: [show], outings: [visitTo(oldHall, '2026-10-20', 2)], context, seed: 0}).pool, 0, 'a low-rated venue keeps its events out');
 });
@@ -403,11 +407,11 @@ test('dated saves read exactly right through the week, across midnight and the 5
   const friday = run('2026-11-13T18:10:00-05:00').out;
   assert.equal(friday.get('DJ set at Spirits & Tales tonight'), 'Happening today');
   assert.equal(friday.get('Pop-up closes Sunday'), 'Last weekend before it closes');
-  assert.equal(friday.get('Market on Saturday'), 'On Saturday 14 Nov');
-  assert.equal(friday.get('Show next Thursday'), 'On Thursday 19 Nov');
+  assert.equal(friday.get('Market on Saturday'), 'On Saturday, Nov 14');
+  assert.equal(friday.get('Show next Thursday'), 'On Thursday, Nov 19');
   const late = run('2026-11-14T02:30:00-05:00');
   assert.equal(late.out.get('DJ set at Spirits & Tales tonight'), 'Happening tonight', 'the Friday session is still open at 2:30 am');
-  assert.equal(late.out.get('Market on Saturday'), 'On Saturday 14 Nov', 'not "today" before the user has slept');
+  assert.equal(late.out.get('Market on Saturday'), 'On Saturday, Nov 14', 'not "today" before the user has slept');
   assert.ok(!late.r.explain.notes.some(n => /passed/.test(n)));
   const morning = run('2026-11-14T11:00:00-05:00');
   assert.equal(morning.out.get('DJ set at Spirits & Tales tonight'), undefined, 'passed after the 5 am reset');

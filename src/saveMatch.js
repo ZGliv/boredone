@@ -77,18 +77,38 @@ export const NAME_THRESHOLD = .74;
 export const SCORE_THRESHOLD = .62;
 const MAX_MATCHES = 12;
 
-// matchCandidates(candidates, places, near) ->
+// Neighbourhood names in the place list ("Strip District", "Polish Hill").
+// A caption that names only an area ("the night market in the Strip
+// District") names no venue: matching it would hand the save to a business
+// that carries the area in its own name ("Caffé Mona Strip District").
+const areaCache = new WeakMap();
+function areaKeys(pool, places, extra) {
+ let keys = Array.isArray(places) ? areaCache.get(places) : null;
+ if (!keys) {
+  keys = new Set(pool.map(p => typeof p.neighborhood === 'string' ? nameKey(p.neighborhood) : '').filter(Boolean));
+  if (Array.isArray(places)) areaCache.set(places, keys);
+ }
+ if (!extra.length) return keys;
+ return new Set([...keys, ...extra.map(nameKey).filter(Boolean)]);
+}
+
+// matchCandidates(candidates, places, near, {areas}) ->
 //   [{candidate, matches:[{place, score, reason, distanceKm}], ambiguous}]
 // in candidate order. matches is [] when nothing clears the threshold.
 // ambiguous is true when the user must pick (a chain or a near tie).
-export function matchCandidates(candidates = [], places = [], near = null) {
+// `areas` adds names that are places-at-large, not venues (the city's name).
+export function matchCandidates(candidates = [], places = [], near = null, {areas = []} = {}) {
  const origin = hasPoint(near) ? near : null;
  const pool = (Array.isArray(places) ? places : []).filter(p => p && typeof p.name === 'string' && p.name.trim());
- let poolKeys = null;
+ let poolKeys = null, areaSet = null;
  return (Array.isArray(candidates) ? candidates : []).map(candidate => {
-  const label = candidate?.kind === 'event' && candidate?.venue ? candidate.venue : candidate?.venue || candidate?.name;
+  areaSet ||= areaKeys(pool, places, (Array.isArray(areas) ? areas : []).filter(a => typeof a === 'string'));
+  let label = candidate?.venue || candidate?.name;
+  // A venue given as an area: a place's own name may still say which one; an
+  // event's name never does ("Pittsburgh Night Market" is not a business).
+  if (label && areaSet.has(nameKey(label))) label = candidate?.kind !== 'event' && candidate?.name !== label ? candidate?.name : '';
   const labelKey = label ? nameKey(label) : '';
-  if (!labelKey) return {candidate, matches: [], ambiguous: false};
+  if (!labelKey || areaSet.has(labelKey)) return {candidate, matches: [], ambiguous: false};
   // One word that several different businesses share ("Pizza", "Sushi",
   // "Tacos") is a category, not a name. Branches of one chain share a whole
   // name, so they count once.

@@ -76,9 +76,49 @@ const FAST_FOOD = /^(mcdonalds|burger king|wendys|taco bell|kfc|kentucky fried c
 export const isFastFoodChain = row => [row?.name, row?.brand].some(n => FAST_FOOD.test(normalizeName(n)));
 
 // One-off events and prizes that Overture files as venues ("Deutschtown Music
-// Festival", "Gene Kelly Awards ...") are not places you can go to.
-const EVENT_NAME = /\b(festival|awards?)\b/i;
-export const isEventName = name => EVENT_NAME.test(String(name || ''));
+// Festival", "Gene Kelly Awards ...") are not places you can go to; nor is a
+// weekly night ("2Step Tuesdays - UK Garage").
+const EVENT_NAME = /\b(festival|awards?|mondays|tuesdays|wednesdays|thursdays|fridays|saturdays|sundays)\b/i;
+
+// A street address filed as a name ("1700 Penn Ave") names no venue.
+const ADDRESS_NAME = /^\d+[a-z]?\s+(?:[nsew]\.?\s+)?[a-z]+(?:\s+[a-z]+)?\s+(st|street|ave|avenue|rd|road|blvd|boulevard|way|dr|drive|ln|lane|pl|place|pike|hwy|highway)\.?$/i;
+export const isAddressName = name => ADDRESS_NAME.test(String(name || '').trim());
+
+// Business-registry names as people read them. "2 Benjamin S Llc Mario S
+// Pizza" is the registry's row for Mario's Pizza: the trading name follows
+// the legal entity (and a "D B A"), and the registry writes "'s" as " S".
+// "Thomas & Fisk, Ltd. Coffee Roasters" only loses the ", Ltd.". A trailing
+// full stop goes unless it closes an abbreviation ("Co.", "Bros."); a few
+// acronyms get their capitals back. Returns "" when no trading name is left.
+const LEGAL_MID = /^(.*?)(,?)\s*\b(?:llc|l\.l\.c\.?|inc|corp|corporation|ltd)\b\.?\s*(.*)$/i;
+// "Dba" (doing business as), as registries spell it, typos included ("Dbs").
+const DBA = /(?:^|\s|\.)(?:d\s?\.?b\s?\.?[as]|d\/b\/a)\b\.?\s+(.+)$/i;
+const ACRONYMS = {amc: 'AMC', bbq: 'BBQ', pnc: 'PNC', upmc: 'UPMC', ymca: 'YMCA', ywca: 'YWCA', vfw: 'VFW', pgh: 'PGH'};
+// A final full stop that closes an abbreviation stays: "Co.", "Bros.", "Etc.", "U.S.A.", "P.A.".
+const ABBREVIATIONS = /(\b(co|bros|st|jr|sr|inc|ltd|mt|ave|etc)|(^|[\s.])[a-z])\.$/i;
+export function cleanName(name) {
+ let text = String(name || '').trim().replace(/\s+/g, ' ');
+ let registry = false;
+ const dba = DBA.exec(text);
+ if (dba) { text = dba[1].trim(); registry = true; }
+ const legal = LEGAL_MID.exec(text);
+ if (legal) {
+  const [, before, comma, after] = legal;
+  const rest = after.replace(/^[\s,.-]+/, '');
+  if (comma && rest) text = `${before} ${rest}`.trim();
+  else if (rest) {
+   // "Ttg Inc Of Columbus": what follows the entity is not a name either.
+   if (/^(of|at|in|the end)\b/i.test(rest)) return '';
+   text = rest; registry = true;
+  }
+  else text = before.trim();
+ }
+ if (registry) text = text.replace(/\b([A-Za-z]{2,}) S\b(?=\s|$)/g, "$1's");
+ if (/\.$/.test(text) && !ABBREVIATIONS.test(text)) text = text.slice(0, -1).trim();
+ text = text.replace(/\b[A-Za-z]+\b/g, w => ACRONYMS[w.toLowerCase()] && w === w[0].toUpperCase() + w.slice(1).toLowerCase() ? ACRONYMS[w.toLowerCase()] : w);
+ return text;
+}
+export const isEventName = name => EVENT_NAME.test(String(name || '')) && !/\btgi fridays\b/i.test(String(name || ''));
 
 export function normalizeName(name) {
  return String(name || '')
@@ -132,8 +172,11 @@ export function rejectReason(row, center, radiusKm, minConfidence = MIN_CONFIDEN
  if (!Number.isFinite(row.lat) || !Number.isFinite(row.lng)) return 'no_location';
  if (distanceKm(center, row) > radiusKm) return 'outside_radius';
  if (!kindFor(row)) return 'not_going_out';
- if (isFastFoodChain(row)) return 'fast_food_chain';
- if (isEventName(row.name)) return 'event_not_venue';
+ const name = cleanName(row.name);
+ if (!name) return 'legal_entity_name';
+ if (isFastFoodChain(row) || isFastFoodChain({name})) return 'fast_food_chain';
+ if (isEventName(name)) return 'event_not_venue';
+ if (isAddressName(name)) return 'address_not_venue';
  if (CLOSED_STATUSES.has(row.operating_status)) return 'closed';
  if (!Number.isFinite(row.confidence) || row.confidence < minConfidence) return 'low_confidence';
  if (isLegalEntityName(row.name)) return 'legal_entity_name';
@@ -144,7 +187,7 @@ export function toPlace(row, center, release) {
  const datasets = [...new Set(recordSources(row).map(s => s.dataset))];
  const place = {
   id: `overture-${row.id}`,
-  name: String(row.name).trim().slice(0, 180),
+  name: cleanName(row.name).slice(0, 180),
   lat: Math.round(row.lat * 1e7) / 1e7,
   lng: Math.round(row.lng * 1e7) / 1e7,
   category: kindFor(row),
@@ -243,7 +286,7 @@ export const LICENCE_NOTICES = {
  'CDLA-Permissive-2.0': 'Overture Maps Foundation places data, CDLA-Permissive-2.0 (https://cdla.dev/permissive-2-0/).',
  'Apache-2.0': 'Includes Foursquare Open Source Places via Overture, Apache-2.0. © Foursquare Labs, Inc. (https://www.apache.org/licenses/LICENSE-2.0).',
  'CC0-1.0': 'Includes CC0-1.0 records (e.g. AllThePlaces) via Overture.',
- ODbL: 'Neighbourhood boundaries from Overture divisions, derived from OpenStreetMap: © OpenStreetMap contributors, ODbL (https://www.openstreetmap.org/copyright).',
+ ODbL: 'Neighborhood boundaries from Overture divisions, derived from OpenStreetMap: © OpenStreetMap contributors, ODbL (https://www.openstreetmap.org/copyright).',
 };
 
 // For rows outside every neighbourhood boundary: the nearest point-only

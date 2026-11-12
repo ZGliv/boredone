@@ -1,9 +1,0 @@
-Bordone landmark atlas
-Created October 23, 2026 with the built-in OpenAI image generation tool.
-Original generated file: exec-65fcac1f-fdf2-49df-9064-23a325678e57.png
-Asset: landmarks.png, transparent square 2 by 2 atlas.
-Quadrants: garden, cafe, gallery, arcade.
-These are illustrative category markers, not photographs or depictions of actual venues.
-
-Generation prompt:
-Use case: stylized-concept. Asset type: a single square 2 by 2 sprite atlas for cozy real-world exploration map landmarks in Bordone. Create exactly four original small isometric storybook miniatures, one centered in each equal quadrant, with consistent scale, projection and soft upper-left light. Top left: tiny lush garden with a rounded leafy tree and a wooden bench. Top right: cozy cafe kiosk with muted terracotta awning and a simple cup symbol. Bottom left: small art gallery pavilion with a colorful print on an outdoor easel. Bottom right: playful arcade hut with a star-shaped sign. Hand-painted game illustration, soft moss and sage greens, butter-colored surfaces and muted coral details, charming compact readable silhouettes at 64 pixels, polished tactile shapes, restrained detail. Each miniature occupies no more than 70 percent of its own quadrant, generous empty separation, nothing crosses quadrant boundaries. Background genuinely transparent alpha, including spaces between objects. No lettering, no words, no watermark, no grid lines, no borders, no full-scene backdrop, no checkerboard drawn into image. Output a square atlas.

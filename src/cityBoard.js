@@ -6,7 +6,7 @@
 // records an edition upgrade must not lose (see upgradeBoard).
 //
 // Pure module: no DOM, no clock. Dates come from the journal's visitDate.
-import { normalizeKind, venueGroup } from "./venues.js";
+import { VENUE_GROUPS, normalizeKind, venueGroup } from "./venues.js";
 import { validDate } from "./model.js";
 import { SYNONYMS, nameKey, nameSimilarity } from "./saveMatch.js";
 
@@ -21,6 +21,9 @@ export const COUNT_MILESTONES = [10, 25, 50, 100, 250];
 export const SET_MIN = 4;
 export const SET_MAX = 15;
 export const TASTE_GOAL = 5;
+// "Taste of" promises food and drink: places to eat, coffee and bars, not
+// nightclubs, arcades or theaters.
+const TASTE_KINDS = new Set([...VENUE_GROUPS.food, ...VENUE_GROUPS.coffee, ...VENUE_GROUPS.drinks].filter((kind) => kind !== "nightclub"));
 
 const GROUP_LABELS = {
   food: "places to eat",
@@ -38,7 +41,7 @@ const KIND_PLURALS = {
   coffee_shop: "coffee shops",
   bar: "bars",
   pub: "pubs",
-  theatre: "theatres",
+  theatre: "theaters",
   theater: "theaters",
   cinema: "cinemas",
   nightclub: "nightclubs",
@@ -172,7 +175,8 @@ function similarNames(a, b) {
 
 export function sameVenue(place, pool) {
   if (!hasPoint(place) || typeof place.name !== "string") return null;
-  const key = venueKey(place.name);
+  // The key is built only once a place is near: most calls find nothing within 120 m.
+  let key;
   let best = null;
   for (const other of pool) {
     if (!hasPoint(other) || typeof other.name !== "string") continue;
@@ -181,6 +185,7 @@ export function sameVenue(place, pool) {
     const d = distanceM(place, other);
     if (d > MATCH_RADIUS_M) continue;
     let rank;
+    key ??= venueKey(place.name);
     if (key && venueKey(other.name) === key) rank = 2;
     else if (d <= NEAR_MATCH_M) {
       rank = similarNames(place.name, other.name);
@@ -329,8 +334,9 @@ export function generateSets(board) {
       if (list.length < SET_MIN || list.length > SET_MAX) continue;
       sets.push(makeSet(board, { key: `hood-${group}:${slug(hood)}`, name: `${hood} ${GROUP_LABELS[group]}`, rule: "all", goal: list.length, members: list, scope: { neighborhood: hood, group } }));
     }
-    if (members.length > TASTE_GOAL) {
-      sets.push(makeSet(board, { key: `taste:${slug(hood)}`, name: `Taste of ${hood}`, rule: "any", goal: TASTE_GOAL, members, scope: { neighborhood: hood } }));
+    const tastes = members.filter((place) => TASTE_KINDS.has(normalizeKind(place.kind)));
+    if (tastes.length > TASTE_GOAL) {
+      sets.push(makeSet(board, { key: `taste:${slug(hood)}`, name: `Taste of ${hood}`, rule: "any", goal: TASTE_GOAL, members: tastes, scope: { neighborhood: hood } }));
     }
   }
   for (const [kind, list] of kinds) {
@@ -503,7 +509,7 @@ export function nextUp(board, outings = [], { location = null, limit = 3 } = {})
   for (const set of generateSets(board)) {
     const p = progressFromEarned(set, current);
     if (p.complete) continue;
-    const reason = set.rule === "all" ? `${p.remaining} left to finish ${set.name}` : `${p.remaining} more for ${set.name}`;
+    const reason = set.rule === "all" ? `${p.remaining} left to finish ${set.name}` : `${p.remaining} left for ${set.name}`;
     groups.push({ id: `set:${set.id}`, name: set.name, ids: set.members, done: p.done, remaining: p.remaining, reason });
   }
   const point = hasPoint(location) ? location : null;

@@ -1,6 +1,18 @@
-import React, { useEffect, useRef, useState } from "react";
+// The plan and Done sheets (owner: builder C). App renders <Editor> whenever
+// actions.saveVisit / visit / addPlan / edit / manual / openEditor ask for it.
+// A memory ("Done") shows what it does to the board, then "How was it?",
+// who with, a note and photos. Swiping it away keeps an unfinished draft,
+// listed in the Journal; only Save writes the journal.
+import React, { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { MAX_PHOTOS, localDate, validateOuting } from "./model";
 import { resizePhoto, writeDraft, deleteDraft } from "./storage";
+import { AppContext } from "./app/AppContext";
+import { count, placeLine } from "./city/placeText";
+import { Button, Icon, ProgressDots, SegmentedControl, Sheet } from "./ui";
+import { VERDICTS, doneEffect, doneIdsFrom, effectLines, hasName, longDay, toggleName } from "./done/boardView";
+import "./done/done.css";
+
+// Native dialog, still used by the account-removal confirmation.
 export function Modal({ title, onClose, children, wide = false }) {
   const ref = useRef(null);
   useEffect(() => {
@@ -8,29 +20,17 @@ export function Modal({ title, onClose, children, wide = false }) {
     return () => ref.current?.close();
   }, []);
   return (
-    <dialog
-      ref={ref}
-      className={wide ? "wide" : ""}
-      aria-labelledby="dialog-title"
-      onCancel={(e) => {
-        e.preventDefault();
-        onClose();
-      }}
-    >
+    <dialog ref={ref} className={wide ? "wide" : ""} aria-labelledby="dialog-title"
+      onCancel={(e) => { e.preventDefault(); onClose(); }}>
       <div className="dialog-top">
         <h2 id="dialog-title">{title}</h2>
-        <button
-          className="icon-button"
-          onClick={onClose}
-          aria-label="Close dialog"
-        >
-          ×
-        </button>
+        <button className="icon-button" onClick={onClose} aria-label="Close"><Icon name="close" size={22} /></button>
       </div>
       {children}
     </dialog>
   );
 }
+
 // The plan/memory form needs a venue. A save with no place yet has nothing to
 // edit here, so close instead of rendering (the Pile UI handles saves).
 export function canEdit(props) {
@@ -41,298 +41,194 @@ export default function Editor(props) {
   useEffect(() => { if (!editable) props.onClose?.(); }, [editable]);
   return editable ? <OutingEditor {...props} /> : null;
 }
-function OutingEditor({ outing, onClose, onSave, isNew = false, people = [], recovery, draftsEnabled = true, onDraftsChanged = () => {}, draftStore={writeDraft,deleteDraft}, validate=validateOuting, preserveDate=false, syncEnabled=false }) {
+
+function OutingEditor({ outing, onClose, onSave, isNew = false, people = [], recovery, draftsEnabled = true, onDraftsChanged = () => {}, draftStore = { writeDraft, deleteDraft }, validate = validateOuting, preserveDate = false }) {
+  const app = useContext(AppContext);
   const [draft, setDraft] = useState(() => structuredClone(recovery?.outing || outing)),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [photoBusy, setPhotoBusy] = useState(false),
-    [dirty, setDirty] = useState(false);
-  const errorRef=useRef(null);
-  useEffect(()=>{
-    if(!error)return;
-    const frame=requestAnimationFrame(()=>errorRef.current?.scrollIntoView({block:'nearest',behavior:'instant'}));
-    return()=>cancelAnimationFrame(frame);
-  },[error]);
-  const draftId=useRef(recovery?.id || crypto.randomUUID());
-  const lastDraftStamp=useRef(recovery?.savedAt);
-  const disposed=useRef(false);
-  useEffect(()=>()=>{disposed.current=true;ended.current=true;clearTimeout(timer.current);},[]);
-  const timer=useRef(), writes=useRef(Promise.resolve()), ended=useRef(false);
-  const [draftStatus,setDraftStatus]=useState(recovery?'Draft restored on this device.':'');
-  function record(value) { return {version:1,id:draftId.current,isNew,originalStamp:recovery?.originalStamp || outing.updatedAt,savedAt:new Date(Math.max(Date.now(),(Date.parse(lastDraftStamp.current)||0)+1)).toISOString(),previousSavedAt:lastDraftStamp.current,outing:value}; }
+    [dirty, setDirty] = useState(false),
+    [person, setPerson] = useState("");
+  const draftId = useRef(recovery?.id || crypto.randomUUID());
+  const lastDraftStamp = useRef(recovery?.savedAt);
+  const timer = useRef(), writes = useRef(Promise.resolve()), ended = useRef(false), disposed = useRef(false);
+  useEffect(() => () => { disposed.current = true; ended.current = true; clearTimeout(timer.current); }, []);
+
+  function record(value) {
+    return { version: 1, id: draftId.current, isNew, originalStamp: recovery?.originalStamp || outing.updatedAt,
+      savedAt: new Date(Math.max(Date.now(), (Date.parse(lastDraftStamp.current) || 0) + 1)).toISOString(), previousSavedAt: lastDraftStamp.current, outing: value };
+  }
   function persist(value) {
-    const next=writes.current.catch(()=>{}).then(()=>{if(ended.current&&disposed.current)throw Error("Editor closed.");return draftStore.writeDraft(record(value));}).then(saved=>{lastDraftStamp.current=saved.savedAt;return saved;});
-    writes.current=next;
+    const next = writes.current.catch(() => {})
+      .then(() => { if (ended.current && disposed.current) throw Error("Editor closed."); return draftStore.writeDraft(record(value)); })
+      .then((saved) => { lastDraftStamp.current = saved.savedAt; return saved; });
+    writes.current = next;
     return next;
   }
-  useEffect(()=>{
-    if(!draftsEnabled || !dirty || ended.current)return;
-    setDraftStatus('Saving draft…');
-    timer.current=setTimeout(()=>{persist(draft).then(()=>{if(!ended.current)setDraftStatus('Draft saved on this device.');}).catch(e=>setDraftStatus(e.message));},250);
-    return ()=>clearTimeout(timer.current);
-  },[draft,dirty,draftsEnabled]);
-  async function keepForLater() {
-    setBusy(true);clearTimeout(timer.current);ended.current=true;
-    try {await persist(draft);onDraftsChanged();onClose();}
-    catch(e){ended.current=false;setError(e.message);setBusy(false);}
-  }
+  useEffect(() => {
+    if (!draftsEnabled || !dirty || ended.current) return;
+    timer.current = setTimeout(() => { persist(draft).catch((e) => setError(e.message)); }, 250);
+    return () => clearTimeout(timer.current);
+  }, [draft, dirty, draftsEnabled]);
   useEffect(() => {
     if (!dirty && !photoBusy) return;
-    const warn = (e) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
+    const warn = (e) => { e.preventDefault(); e.returnValue = ""; };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty, photoBusy]);
+
   function update(fields) {
     setDraft((d) => ({ ...d, ...fields }));
     setDirty(true);
   }
-  async function close() {
-    if (
-      (dirty || photoBusy || recovery) &&
-      !window.confirm("Discard the changes to this outing?")
-    )
-      return;
-    clearTimeout(timer.current);ended.current=true;
-    try {await writes.current.catch(()=>{});if(draftsEnabled)await draftStore.deleteDraft(draftId.current,lastDraftStamp.current);onDraftsChanged();onClose();}
-    catch(e){ended.current=false;setError(e.message);}
+  // Dismissing (swipe, scrim, Escape) keeps what was typed as a draft; an
+  // untouched sheet leaves nothing behind.
+  async function dismiss() {
+    clearTimeout(timer.current);
+    ended.current = true;
+    try {
+      if (draftsEnabled && (dirty || photoBusy)) { await persist(draft); onDraftsChanged(); }
+      else {
+        await writes.current.catch(() => {});
+        if (draftsEnabled && !recovery) await draftStore.deleteDraft(draftId.current, lastDraftStamp.current);
+        onDraftsChanged();
+      }
+    } catch { /* The draft stays listed; nothing in the journal changed. */ }
+    onClose();
   }
   async function photos(event) {
     const files = [...event.target.files];
     event.target.value = "";
-    if (files.length + draft.photos.length > MAX_PHOTOS) {
-      setError(`Keep up to ${MAX_PHOTOS} photos per memory.`);
-      return;
-    }
+    if (files.length + draft.photos.length > MAX_PHOTOS) { setError(`${MAX_PHOTOS} photos max`); return; }
     setPhotoBusy(true);
     setError("");
-    try {
-      const rejected = [];
-      for (const file of files) {
-        try { const photo=await resizePhoto(file);setDraft(d=>({...d,photos:[...d.photos,photo]}));setDirty(true); }
-        catch(error) { rejected.push(`${file.name}: ${error.message}`); }
-      }
-
-      if(rejected.length)setError(rejected.join(' '));
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setPhotoBusy(false);
+    const rejected = [];
+    for (const file of files) {
+      try { const photo = await resizePhoto(file); setDraft((d) => ({ ...d, photos: [...d.photos, photo] })); setDirty(true); }
+      catch (e) { rejected.push(e.message); }
     }
+    if (rejected.length) setError(rejected.join(" "));
+    setPhotoBusy(false);
   }
   async function submit(event, separate = false) {
     event?.preventDefault();
     setBusy(true);
     setError("");
     try {
-      const next = validate({
-        ...draft,
-        ...(separate ? {id:crypto.randomUUID(),createdAt:new Date().toISOString()} : {}),
-        updatedAt: new Date().toISOString(),
-      },outing);
-      clearTimeout(timer.current);ended.current=true;
-      await writes.current.catch(()=>{});
-      await onSave(next, recovery?.originalStamp || outing.updatedAt, separate || isNew, draftsEnabled?draftId.current:undefined,lastDraftStamp.current);
+      const next = validate({ ...draft, ...(separate ? { id: crypto.randomUUID(), createdAt: new Date().toISOString() } : {}), updatedAt: new Date().toISOString() }, outing);
+      clearTimeout(timer.current);
+      ended.current = true;
+      await writes.current.catch(() => {});
+      await onSave(next, recovery?.originalStamp || outing.updatedAt, separate || isNew, draftsEnabled ? draftId.current : undefined, lastDraftStamp.current);
       onDraftsChanged();
     } catch (e) {
-      ended.current=false;
+      ended.current = false;
       setError(e.message);
     } finally {
       setBusy(false);
     }
   }
+
   const memory = draft.status === "visited";
+  const typed = draft.place.source === "You";
+  const wasDone = app?.outings?.find((o) => o.id === outing.id)?.status === "visited";
+  const doneIds = useMemo(() => doneIdsFrom(app?.states), [app?.states]);
+  const effect = useMemo(() => (memory && !wasDone && !typed ? doneEffect({ board: app?.board, doneIds, place: draft.place, visitDate: draft.visitDate }) : null),
+    [memory, wasDone, typed, app?.board, doneIds, draft.place, draft.visitDate]);
+  const lines = effectLines(effect);
+  const shown = effect ? app.board.places[app.board.placeIndex[effect.placeId]] : null;
+  const maxDate = memory ? (preserveDate && outing.visitDate > localDate() ? outing.visitDate : localDate()) : undefined;
+  const known = people.slice(0, 8);
+  const extra = (draft.with || "").split(",").map((s) => s.trim()).filter((n) => n && !known.some((k) => k.toLowerCase() === n.toLowerCase()));
+  const addPerson = () => { if (person.trim() && !hasName(draft.with, person)) update({ with: toggleName(draft.with, person) }); setPerson(""); };
+  const heading = memory ? (wasDone ? "Edit" : "Done") : isNew ? "Plan" : "Edit plan";
+
   return (
-    <Modal
-      title={
-        memory ? "Save a visit" : isNew ? "Make a plan" : "Edit your plan"
-      }
-      onClose={busy ? () => {} : close}
-    >
-      <form onSubmit={submit} className={`editor ${memory ? "visit-editor" : ""}`}>
+    <Sheet label={heading} onClose={busy ? () => {} : dismiss} className={`outing-sheet${memory ? " is-done" : ""}`}>
+      <form onSubmit={submit} className="outing-form">
         <fieldset disabled={busy || photoBusy}>
-          {draft.place.source === "You" ? (
-            <>
-              <label>
-                Place or activity
-                <input
-                  required
-                  maxLength={180}
-                  value={draft.place.name}
-                  placeholder="An evening at the planetarium"
-                  onChange={(e) =>
-                    update({ place: { ...draft.place, name: e.target.value } })
-                  }
-                />
-              </label>
-              <label>
-                Location
-                <input
-                  maxLength={600}
-                  value={draft.place.address}
-                  placeholder="A neighborhood, city or address"
-                  onChange={(e) =>
-                    update({
-                      place: { ...draft.place, address: e.target.value },
-                    })
-                  }
-                />
-              </label>
-              <label>
-                Category
-                <input
-                  maxLength={100}
-                  value={draft.place.category}
-                  placeholder="Outdoors, food, music…"
-                  onChange={(e) =>
-                    update({
-                      place: { ...draft.place, category: e.target.value },
-                    })
-                  }
-                />
-              </label>
-            </>
+          {typed ? (
+            <div className="outing-typed">
+              <label className="field field-name"><span>{heading}</span>
+                <input required maxLength={180} placeholder="Name" value={draft.place.name} onChange={(e) => update({ place: { ...draft.place, name: e.target.value } })} /></label>
+              <div className="field-pair">
+                <label className="field"><span>Where</span>
+                  <input maxLength={600} value={draft.place.address} onChange={(e) => update({ place: { ...draft.place, address: e.target.value } })} /></label>
+                <label className="field"><span>Kind</span>
+                  <input maxLength={100} value={draft.place.category} onChange={(e) => update({ place: { ...draft.place, category: e.target.value } })} /></label>
+              </div>
+            </div>
           ) : (
-            <div className="outing-summary">
-              <span className="kicker">{draft.place.category}</span>
-              <h3>{draft.place.name}</h3>
-              <p>{draft.place.address || "Location saved with your plan"}</p>
+            <header className="outing-hero">
+              <div>
+                <p className="t-caps">{heading}</p>
+                <h2 className="outing-name">{draft.place.name}</h2>
+                {placeLine(shown || draft.place) && <p className="outing-line">{placeLine(shown || draft.place)}</p>}
+              </div>
+            </header>
+          )}
+
+          {lines && (
+            <div className="outing-effect" role="status">
+              <div className="outing-effect-row">
+                {effect.set && <ProgressDots done={effect.set.done} total={effect.set.goal} className="dots-big" />}
+                <p><b>{lines.name}, <span className="nowrap">{lines.tally}</span></b>{lines.tail && <span>{lines.tail}</span>}</p>
+              </div>
+              <p className="outing-effect-total t-tab"><span className="t-num">{count(effect.done)}</span> of {count(effect.total)} in {app.city?.name}</p>
             </div>
           )}
-          {memory && <section className="visit-photo-picker">              <div className="photo-label">
-                <span>
-                  Photos{" "}
-                  <small>
-                    {draft.photos.length}/{MAX_PHOTOS}
-                  </small>
-                </span>
-                <label className="button secondary file-button">
-                  Add photos
-                  <input
-                    aria-label="Add photos"
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    multiple
-                    onChange={photos}
-                  />
-                </label>
-              </div>
-              <p className="hint">
-                {syncEnabled?"Save this visit to sync its photos with your account.":"Saved on this device, not backed up online."} JPEG, PNG or WebP; resized for your album.
-              </p>
-              <div className="photo-grid">
-                {draft.photos.map((src, i) => (
-                  <div key={src.slice(-50) + i}>
-                    <img src={src} alt={`Memory photo ${i + 1}`} />
-                    <button type="button" className="photo-cover" onClick={()=>update({photos:[src,...draft.photos.filter((_,index)=>index!==i)]})} aria-label={`Use photo ${i+1} as cover`}>{i===0?'Cover':'Set cover'}</button>
-                    <button
-                      type="button"
-                      className="photo-remove"
-                      aria-label={`Remove photo ${i + 1}`}
-                      onClick={() =>
-                        update({
-                          photos: draft.photos.filter(
-                            (_, index) => index !== i,
-                          ),
-                        })
-                      }
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))}
-              </div></section>}
-          <datalist id="journal-companions">{people.map(person=><option value={person} key={person}/>)}</datalist>
-          <div className="form-row">
-            <label>
-              {memory ? "Date visited" : "When (optional)"}
-              <input
-                type="date"
-                required={memory}
-                max={memory ? (preserveDate&&outing.visitDate>localDate()?outing.visitDate:localDate()) : undefined}
-                value={memory ? draft.visitDate : draft.planDate}
-                onChange={(e) =>
-                  update(
-                    memory
-                      ? { visitDate: e.target.value }
-                      : { planDate: e.target.value },
-                  )
-                }
-              />
-            </label>
-            <label>
-              Who with? (optional)
-              <input
-                maxLength={200}
-                placeholder="Names, separated by commas"
-                list="journal-companions"
-                autoComplete="off"
-                value={draft.with}
-                onChange={(e) => update({ with: e.target.value })}
-              />
-            </label>
-          </div>
-          <details className="visit-extras" open={!memory || undefined}><summary>{memory ? "Notes & rating (optional)" : "Plan details"}</summary>
-          <label>
-            {memory ? "What do you want to remember?" : "Your plan"}
-            <textarea
-              rows={4}
-              maxLength={6000}
-              placeholder={
-                memory
-                  ? "The good parts, the unexpected parts, what you’d do again…"
-                  : "What caught your eye? Anything to bring or book?"
-              }
-              value={draft.notes}
-              onChange={(e) => update({ notes: e.target.value })}
-            />
-          </label>
-          {memory && (
-            <>
-              <label>
-                Would you go again?
-                <select
-                  value={draft.rating}
-                  onChange={(e) => update({ rating: Number(e.target.value) })}
-                >
-                  <option value="0">Leave unrated</option>
-                  <option value="5">5 · Absolutely</option>
-                  <option value="4">4 · Glad I went</option>
-                  <option value="3">3 · It was okay</option>
-                  <option value="2">2 · Probably not</option>
-                  <option value="1">1 · Not for me</option>
-                </select>
-              </label>
 
-            </>
+          <label className="field field-inline"><span>{memory ? "Date" : "When"}</span>
+            <em className={`field-fact${(memory ? draft.visitDate : draft.planDate) ? "" : " is-empty"}`}>{longDay(memory ? draft.visitDate : draft.planDate) || "Any day"}</em>
+            <input type="date" required={memory} max={maxDate} value={memory ? draft.visitDate : draft.planDate}
+              onClick={(e) => { try { e.currentTarget.showPicker?.(); } catch { /* Opens natively on touch. */ } }}
+              onChange={(e) => update(memory ? { visitDate: e.target.value } : { planDate: e.target.value })} />
+          </label>
+
+          {memory && (
+            <section className="outing-verdict">
+              <span className="field-label" aria-hidden="true">How was it</span>
+              <SegmentedControl label="How was it?" value={draft.rating} onChange={(rating) => update({ rating: rating === draft.rating ? 0 : rating })}
+                options={VERDICTS} className="verdicts" />
+            </section>
           )}
-          </details>
+
+          <div className="outing-with">
+            <span className="field-label">With</span>
+            {[...known, ...extra].map((name) => (
+              <button key={name} type="button" className="chip" aria-pressed={hasName(draft.with, name)} onClick={() => update({ with: toggleName(draft.with, name) })}>{name}</button>
+            ))}
+            <input className="chip-input" aria-label="Add a name" placeholder="Name" maxLength={60} value={person}
+              onChange={(e) => setPerson(e.target.value)} onBlur={addPerson}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addPerson(); } }} />
+          </div>
+
+          <label className="field field-note"><span className="sr-only">Note</span>
+            <textarea rows={3} maxLength={6000} placeholder="Note" value={draft.notes} onChange={(e) => update({ notes: e.target.value })} /></label>
+
+          {memory && (
+            <div className="outing-photos">
+              {draft.photos.map((src, i) => (
+                <figure key={src.slice(-40) + i}>
+                  <img src={src} alt={`Photo ${i + 1}`} />
+                  <button type="button" aria-label={`Remove photo ${i + 1}`} onClick={() => update({ photos: draft.photos.filter((_, n) => n !== i) })}><Icon name="close" size={16} /></button>
+                </figure>
+              ))}
+              {draft.photos.length < MAX_PHOTOS && (
+                <label className="photo-add">
+                  <Icon name="add" size={20} /><span>{photoBusy ? "Preparing" : draft.photos.length ? "Photo" : "Add a photo"}</span>
+                  <input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={photos} />
+                </label>
+              )}
+            </div>
+          )}
         </fieldset>
-        {draftsEnabled && draftStatus && <p className="hint" role="status">{draftStatus}</p>}
-        {photoBusy && <p role="status">Preparing your photos…</p>}
-        {error && (
-          <p ref={errorRef} role="alert" className="notice error">
-            {error}
-          </p>
-        )}
-        {memory && /another tab/.test(error) && <button type="button" className="secondary" disabled={busy || photoBusy} onClick={()=>submit(null,true)}>Save as a separate visit</button>}
-        <div className="dialog-actions">
-          {draftsEnabled && <button type="button" className="text-button" disabled={busy || photoBusy} onClick={keepForLater}>Finish later</button>}
-          <button
-            type="button"
-            className="secondary"
-            onClick={close}
-            disabled={busy}
-          >
-            Cancel
-          </button>
-          <button type="submit" disabled={busy || photoBusy}>
-            {busy ? "Saving…" : memory ? "Save memory" : "Save plan"}
-          </button>
-        </div>
+
+        {error && <p className="outing-error" role="alert">{error}</p>}
+        {memory && /another tab/.test(error) && <Button variant="quiet" block disabled={busy || photoBusy} onClick={() => submit(null, true)}>Save as new</Button>}
+        <Button type="submit" variant="primary" block disabled={busy || photoBusy}>{busy ? "Saving" : memory ? "Save" : "Save plan"}</Button>
       </form>
-    </Modal>
+    </Sheet>
   );
 }

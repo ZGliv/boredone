@@ -1,0 +1,5 @@
+.world-map { position: absolute; inset: 0; background: var(--night); }
+.world-map-canvas { position: absolute; inset: 0; }
+.world-map .maplibregl-canvas:focus { outline: none; }
+.world-map-offline { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); display: flex; align-items: center; gap: var(--s3); padding: var(--s2) var(--s2) var(--s2) var(--s4); border: var(--hair); border-radius: var(--r-md); background: var(--paper); color: var(--muted); font-size: var(--text-sm); }
+.world-map-offline button { min-height: 40px; padding: 0 var(--s3); border: 0; background: none; color: var(--ink); font-weight: 600; cursor: pointer; }

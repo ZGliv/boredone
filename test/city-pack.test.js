@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {validatePlace} from '../src/model.js';
 import {VENUE_KINDS} from '../src/venues.js';
-import {kindFor, rejectReason, normalizeName, sameName, mergeDuplicates, withNearestNeighborhood, buildPack, bboxFor, toPlace, isLegalEntityName, isFastFoodChain, isEventName} from '../scripts/city-pack/mapping.mjs';
+import {kindFor, rejectReason, normalizeName, sameName, mergeDuplicates, withNearestNeighborhood, buildPack, bboxFor, toPlace, isLegalEntityName, isFastFoodChain, isEventName, cleanName, isAddressName} from '../scripts/city-pack/mapping.mjs';
 import {compareGuide} from '../scripts/city-pack/compare.mjs';
 
 const center = {lat: 40.44, lng: -80};
@@ -172,6 +172,31 @@ test('committed city packs hold only valid venue places with unique ids', () => 
    assert.ok(VENUE_KINDS.has(p.category), `${file} ${p.name} ${p.category}`);
    assert.ok(p.id.startsWith('overture-'));
    validatePlace(p);
+  }
+ }
+});
+
+test('registry names become the trading name people read', () => {
+ assert.equal(cleanName('2 Benjamin S Llc Mario S Pizza'), "Mario's Pizza");
+ assert.equal(cleanName('Excuses Umlimited Inc Dba Excuses Bar & Grill'), 'Excuses Bar & Grill');
+ assert.equal(cleanName('Salonika Ind. Inc. D B A Salonika Gyros'), 'Salonika Gyros');
+ assert.equal(cleanName('Thomas & Fisk, Ltd. Coffee Roasters'), 'Thomas & Fisk Coffee Roasters');
+ assert.equal(cleanName('Amc Lowes Waterfront, Hamstead Pittsburgh.'), 'AMC Lowes Waterfront, Hamstead Pittsburgh');
+ assert.equal(cleanName('Ttg Inc Of Columbus'), '', 'no trading name left');
+ for (const kept of ['Primanti Bros.', 'Nicholas Coffee and Tea Co.', 'Triple S Cafe', 'Danceville U.s.a.', 'TGI Fridays']) assert.equal(cleanName(kept), kept);
+ assert.equal(isEventName('2Step Tuesdays - UK Garage'), true);
+ assert.equal(isEventName('TGI Fridays'), false);
+ assert.equal(isAddressName('1700 Penn Ave'), true);
+ assert.equal(isAddressName('703 Social Club'), false);
+ assert.equal(rejectReason({name: 'Kazours Gourmet Inc Subway', lat: 0, lng: 0, taxonomy_primary: 'sandwich_shop', confidence: .9}, {lat: 0, lng: 0}, 5), 'fast_food_chain');
+});
+
+test('committed packs carry names already through the build\'s name pass', () => {
+ const dir = new URL('../data/city-packs/', import.meta.url);
+ for (const file of readdirSync(dir).filter(f => f.endsWith('.json'))) {
+  for (const p of JSON.parse(readFileSync(new URL(file, dir), 'utf8')).places) {
+   assert.equal(cleanName(p.name), p.name, `${file}: ${p.name}`);
+   assert.ok(!isEventName(p.name) && !isAddressName(p.name), `${file}: ${p.name}`);
   }
  }
 });

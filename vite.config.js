@@ -1,14 +1,23 @@
 import {accountRemovalHandler} from "./server/account-removal.js";
 import { readFileSync } from "node:fs";
 import { offlineShellPlugin } from "./server/offline-shell.js";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import { offlineAreaHandler } from "./server/offline-area.js";
 import { editorialHandler } from "./server/editorial.js";
 import { discoveryHandler } from "./server/discovery.js";
 import { resolveSaveHandler } from "./server/resolve-save.js";
 import { eventsHandler } from "./server/events/index.js";
 const deploymentHeaders = JSON.parse(readFileSync(new URL("./vercel.json", import.meta.url))).headers[0].headers;
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  // The API routes run inside Vite in dev and preview, and read their keys
+  // (ANTHROPIC_API_KEY, TICKETMASTER_API_KEY) from process.env when a request
+  // arrives. Vite only exposes VITE_ variables from .env files to the client,
+  // and puts nothing in process.env, so hand the server its own: unset keys
+  // only, never shipped to the browser.
+  for (const [key, value] of Object.entries(loadEnv(mode, process.cwd(), ""))) {
+    if (process.env[key] === undefined) process.env[key] = value;
+  }
+  return {
   // Archived venue HTML in output/ is research material, not application entry points.
   optimizeDeps: { entries: ['index.html'], include: ['@supabase/supabase-js'] },
   preview: { headers: Object.fromEntries(deploymentHeaders.map(({key, value}) => [key, value])) },
@@ -36,4 +45,5 @@ export default defineConfig({
       },
     },
   ],
+};
 });

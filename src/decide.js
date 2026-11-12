@@ -69,19 +69,31 @@ function offsetOf(value, fallback){
 }
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const WEEKDAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-// "14 Nov", or "3 Jan 2027" when the year is not the current one.
+// "Nov 14", or "Jan 3, 2027" when the year is not the current one.
 function dateText(day, today){
  const iso=new Date(day*DAY).toISOString();
- const text=`${Number(iso.slice(8,10))} ${MONTHS[Number(iso.slice(5,7))-1]}`;
- return iso.slice(0,4)===new Date(today*DAY).toISOString().slice(0,4)?text:`${text} ${iso.slice(0,4)}`;
+ const text=`${MONTHS[Number(iso.slice(5,7))-1]} ${Number(iso.slice(8,10))}`;
+ return iso.slice(0,4)===new Date(today*DAY).toISOString().slice(0,4)?text:`${text}, ${iso.slice(0,4)}`;
 }
-const weekdayText=(day, today)=>`${WEEKDAYS[new Date(day*DAY).getUTCDay()]} ${dateText(day, today)}`;
+const weekdayText=(day, today)=>`${WEEKDAYS[new Date(day*DAY).getUTCDay()]}, ${dateText(day, today)}`;
+// The Done sheet's own words for a rating: 5 is "Loved it"; 4 (older records) "Good".
+const felt=rating=>rating>=5?'loved':'liked';
 // Plain words for a place's kind when nothing else is known: "Restaurant in German Village".
 function kindText(place){
  const kind=normalizeKind(place.category).replace(/_/g,' ');
  if(!kind)return '';
  const hood=typeof place.neighborhood==='string'&&place.neighborhood.trim()?place.neighborhood.trim():'';
  return `${kind[0].toUpperCase()}${kind.slice(1)}${hood?` in ${hood}`:''}`;
+}
+
+// sameVenue only looks within 0.0012 degrees of latitude (about 120 m), so
+// each lookup needs only its own band of the list and the two beside it.
+// Same answers as passing the whole list, without scanning thousands of places.
+const BAND=0.0012;
+function latBands(list){
+ const bands=new Map();
+ for(const p of list){const k=Math.floor(p.lat/BAND);if(!bands.has(k))bands.set(k,[]);bands.get(k).push(p);}
+ return place=>{const k=Math.floor(place.lat/BAND);return [...(bands.get(k-1)||[]),...(bands.get(k)||[]),...(bands.get(k+1)||[])];};
 }
 
 // FNV-1a then a 32-bit mix: a stable 0..1 value per (seed, candidate), so the
@@ -141,10 +153,10 @@ export function decideTonight({saves=[], places=[], events=[], outings=[], conte
  // lists the same venue under its own id. Same rule as the city board
  // (cityBoard.sameVenue): an id in the list wins, else the same venue name
  // within 120 m, else a near-identical name within 60 m.
- const idCache=new Map();
+ const idCache=new Map(), listedNear=latBands(listed);
  const idOf=place=>{
   if(!place?.id||placeById.has(place.id)||!hasCoords(place))return place?.id||'';
-  if(!idCache.has(place.id))idCache.set(place.id, sameVenue(place, listed)?.place.id||place.id);
+  if(!idCache.has(place.id))idCache.set(place.id, sameVenue(place, listedNear(place))?.place.id||place.id);
   return idCache.get(place.id);
  };
 
@@ -162,13 +174,14 @@ export function decideTonight({saves=[], places=[], events=[], outings=[], conte
  // A list can hold one venue twice (two records a few metres apart under
  // slightly different names); a visit to either copy is history for both.
  const visitedPlaces=[...visits].filter(([,row])=>hasCoords(row.place)).map(([id,row])=>({...row.place, id}));
+ const visitedNear=latBands(visitedPlaces);
  const rowCache=new Map();
  const historyOf=place=>{
   if(!place)return null;
   const id=idOf(place);
   if(visits.has(id))return visits.get(id);
   if(!hasCoords(place)||!visitedPlaces.length)return null;
-  if(!rowCache.has(id)){const hit=sameVenue(place, visitedPlaces);rowCache.set(id, hit?visits.get(hit.place.id):null);}
+  if(!rowCache.has(id)){const hit=sameVenue(place, visitedNear(place));rowCache.set(id, hit?visits.get(hit.place.id):null);}
   return rowCache.get(id);
  };
  const ratingOf=row=>row?.rated?.rating||0;
@@ -197,10 +210,10 @@ export function decideTonight({saves=[], places=[], events=[], outings=[], conte
    const ago=calendarToday-dayNumber(row.last);
    // A visit dated after "now" (clock or zone skew) is not described as past.
    if(ago>=0&&ago<=RECENT_DAYS){score-=40;reasons.push(ago===0?'You went today':ago===1?'You went yesterday':`You went ${ago} days ago`);}
-   if(r>=4){score+=12;reasons.push(`You rated it ${r} last time`);}
+   if(r>=4){score+=12;reasons.push(`You ${felt(r)} it last time`);}
   }else{
    const like=loved.get(kindOf(place));
-   if(like&&like.id!==id){score+=own?6:15;reasons.push(`Like ${like.name}, which you rated ${like.rating}`);}
+   if(like&&like.id!==id){score+=own?6:15;reasons.push(`Like ${like.name}, which you ${felt(like.rating)}`);}
   }
   if(planned.has(id)&&!own){score+=40;reasons.unshift('Already in your plans');}
   if(place.recommendation?.text){const f=editorialFreshness(place.recommendation, now);if(f==='dated'){score+=8;reasons.push(`Guide entry updated ${place.recommendation.listingUpdated}`);}}
@@ -275,7 +288,7 @@ export function decideTonight({saves=[], places=[], events=[], outings=[], conte
   let score=60+(energy?.groups.event||0)+(company?.groups.event||0);
   const venueRating=ratingOf(venueRow);
   if(event.placeId&&savedPlaceIds.has(event.placeId)){score+=20;reasons.push('At a place you saved');}
-  else if(event.placeId&&venueRating>=4){score+=10;reasons.push(`You rated ${event.venueName||'the venue'} ${venueRating} last time`);}
+  else if(event.placeId&&venueRating>=4){score+=10;reasons.push(`You ${felt(venueRating)} ${event.venueName||'the venue'} last time`);}
   if(km!==null){score-=Math.min(km,15)*perKm;reasons.push(kmText(km));}
   else if(location)score-=UNKNOWN_EVENT_KM*perKm;
   if(event.venueName)reasons.push(`At ${event.venueName}`);

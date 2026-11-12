@@ -1,84 +1,75 @@
 import { localDate, makeOuting } from "../model";
 import { manualOuting } from "./outings";
-import { outingLabel } from "../saves";
 
-// Creating, saving and deleting plans and memories. Recreated each render so
-// every handler sees the current page, library and demo state.
-export default function useOutingActions({ journal, account, page, navigate, setEditor, setMemoryDetail, setSelected, setMessage }) {
-  const { library, libraryRef, commit, demoMode, setStorageError } = journal;
+// Writing the journal: saves, plans and memories. Recreated each render so
+// every handler sees the current library.
+//   put(outing)        insert or replace one record (saves, attaching a place, ...)
+//   remove(outing)     delete after a confirm sheet; resolves true when removed
+//   addPlan(place)     open the editor on a new (or the existing) plan
+//   saveVisit(place)   open the editor on a new memory dated today
+//   visit(outing)      open the editor turning a plan or save into a memory
+//   edit(outing)       open the editor on an existing plan or memory
+//   manual(memory)     open the editor on a blank plan or memory
+//   saveOuting(...)    the editor's own save; not for screens
+// "Delete Gooski's", or "Delete this note" for a save with no place: a
+// caption never becomes the sentence.
+export function deleteTitle(outing) {
+  if (outing?.place?.name) return `Delete ${outing.place.name}`;
+  return outing?.source?.url ? "Delete this link" : "Delete this note";
+}
+
+export default function useOutingActions({ journal, account, setEditor, toast, confirm, navigate }) {
+  const { library, libraryRef, commit, setStorageError } = journal;
   async function saveOuting(outing, originalStamp, isNew, draftId, draftStamp) {
     const current = libraryRef.current.outings,
       existing = current.find((x) => x.id === outing.id);
-    if (isNew && existing) throw new Error("This outing was already saved in another tab. Your draft is still here; reopen the saved memory before making further changes.");
-    if (!isNew && (!existing || existing.updatedAt !== originalStamp))
-      throw new Error(
-        "This outing changed in another tab. Close this editor and open it again to see the latest version.",
-      );
-    if (
-      isNew && outing.status === "planned" &&
-      current.some(
-        (x) => x.status === "planned" && x.place?.id === outing.place?.id,
-      )
-    )
-      throw new Error(
-        "This place is already in your plans. Open it from Do it.",
-      );
-    await commit(
-      existing
-        ? current.map((o) => (o.id === outing.id ? outing : o))
-        : [outing, ...current], draftId, draftStamp,
-    );
+    if (isNew && existing) throw new Error("Saved in another tab");
+    if (!isNew && !existing) throw new Error("Deleted in another tab");
+    if (!isNew && existing.updatedAt !== originalStamp) throw new Error("Changed in another tab");
+    if (isNew && outing.status === "planned" && current.some((x) => x.status === "planned" && x.place?.id === outing.place?.id))
+      throw new Error("Already planned");
+    await commit(existing ? current.map((o) => (o.id === outing.id ? outing : o)) : [outing, ...current], draftId, draftStamp);
     setEditor(null);
-    setMemoryDetail(null);
-    setSelected(null);
-    setMessage(
-      outing.status === "visited"
-        ? (demoMode ? "Sample memory saved for this demo." : (account?.owner ? "Memory saved. Sync will continue when connected." : "Memory saved in this browser."))
-        : "Your plan is saved.",
-    );
-    // Planning from the map should leave the explorer at their chosen view.
-    // Journal-page edits continue to return to the corresponding collection.
-    if (outing.status === "visited") { navigate("memories"); setMemoryDetail(outing); }
-    else if (page !== "find") navigate("plans");
+    toast(outing.status === "visited" ? "Saved to journal" : "Planned");
+    if (outing.status === "visited") navigate("journal");
+  }
+  async function put(outing) {
+    const current = libraryRef.current.outings;
+    const next = current.some((o) => o.id === outing.id) ? current.map((o) => (o.id === outing.id ? outing : o)) : [outing, ...current];
+    try {
+      await commit(next);
+      return true;
+    } catch (e) {
+      setStorageError(e.message);
+      return false;
+    }
   }
   function addPlan(place) {
-    const existing = library.outings.find(
-      (x) => x.status === "planned" && x.place?.id === place.id,
-    );
-    setSelected(null);
+    const existing = library.outings.find((x) => x.status === "planned" && x.place?.id === place.id);
     setEditor({ outing: existing || makeOuting(place), isNew: !existing });
   }
   function manual(memory = false) {
     setEditor({ isNew: true, outing: manualOuting(memory) });
   }
   function saveVisit(place) {
-    const outing = makeOuting(place);
-    setSelected(null);
-    setEditor({isNew:true,outing:{...outing,status:'visited',visitDate:localDate()}});
+    setEditor({ isNew: true, outing: { ...makeOuting(place), status: "visited", visitDate: localDate() } });
   }
   function visit(outing) {
-    setMemoryDetail(null);
-    setEditor({
-      isNew: false,
-      outing: { ...outing, status: "visited", visitDate: localDate() },
-    });
+    setEditor({ isNew: false, outing: { ...outing, status: "visited", visitDate: localDate() } });
+  }
+  function edit(outing) {
+    setEditor({ isNew: false, outing });
   }
   async function remove(outing) {
-    if (
-      !window.confirm(
-        `Delete “${outingLabel(outing)}” and its saved photos ${account?.owner?'from your account and synced devices':'from this browser'}? Export a backup first if you want to keep a copy.`,
-      )
-    )
-      return;
+    if (!(await confirm(`${deleteTitle(outing)}${account?.owner ? " everywhere" : ""}?`))) return false;
     try {
-      await commit(
-        libraryRef.current.outings.filter((o) => o.id !== outing.id),
-      );
-      setMemoryDetail(null);
-      setMessage("Outing removed.");
+      await commit(libraryRef.current.outings.filter((o) => o.id !== outing.id));
+      toast("Deleted");
+      return true;
     } catch (e) {
       setStorageError(e.message);
+      return false;
     }
   }
-  return { saveOuting, addPlan, manual, saveVisit, visit, remove };
+  return { saveOuting, put, addPlan, manual, saveVisit, visit, edit, remove };
 }

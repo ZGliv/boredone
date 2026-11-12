@@ -83,3 +83,20 @@ test('optional photo warming limits concurrency and tolerates offline failure',a
  await w.warm();assert.ok(peak<=2);assert.equal(w.cachesByName.get('boredone-guide-photos-v1').size,0);
 });
 
+
+test('install caches fonts and the default city pack; other packs cache on first open',async()=>{
+ let source,install,assets;const handlers={};
+ const bundle={'assets/app.js':{},'assets/app.css':{},'assets/big-shoulders-display-latin-800-normal-x.woff2':{},'assets/big-shoulders-display-latin-800-normal-x.woff':{},
+  'assets/pittsburgh-a.js':{facadeModuleId:'/r/data/city-packs/pittsburgh.json'},'assets/columbus-b.js':{facadeModuleId:'/r/data/city-packs/columbus.json'}};
+ offlineShellPlugin().generateBundle.call({emitFile:file=>{source=file.source;}},{},bundle);
+ const packStore=new Map();let fetched=0;
+ vm.runInNewContext(source,{URL,fetch:async()=>{fetched++;return new Response('pack');},self:{location:{origin:'https://boredone.test'},addEventListener:(type,fn)=>{handlers[type]=fn;},skipWaiting:()=>{}},
+  caches:{open:async name=>name==='boredone-city-packs-v1'?{match:async k=>packStore.get(k)?.clone(),put:async(k,r)=>{packStore.set(k,r);}}:{addAll:async paths=>{assets=[...paths];}}}});
+ let done;handlers.install({waitUntil:p=>{done=p;}});await done;
+ assert.ok(assets.includes('/assets/big-shoulders-display-latin-800-normal-x.woff2'));
+ assert.ok(!assets.includes('/assets/big-shoulders-display-latin-800-normal-x.woff'));
+ assert.ok(assets.includes('/assets/pittsburgh-a.js'));
+ assert.ok(!assets.includes('/assets/columbus-b.js'));
+ for(let i=0;i<2;i++){let response;const pending=[];handlers.fetch({request:{url:'https://boredone.test/assets/columbus-b.js',method:'GET',mode:'cors'},respondWith:p=>{response=p;},waitUntil:p=>pending.push(p)});assert.equal(await(await response).text(),'pack');await Promise.all(pending);}
+ assert.equal(fetched,1);
+});

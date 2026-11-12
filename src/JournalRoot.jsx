@@ -16,9 +16,9 @@ export default function JournalRoot({App,guestStore}){
         flushSync(()=>setState({...next,signIn:()=>controller.signIn(),signOut:()=>controller.signOut(),sync:()=>controller.sync(),beginRemoval:value=>controller.beginRemoval(value),resumeRemoval:()=>controller.resumeRemoval(),checkRemovals:()=>controller.checkRemovals()}));
       }});
       return controller.start();
-    }).catch(()=>{if(active)setState({key:'guest',phase:'failed',error:'Account connection unavailable. This device’s journal is still available.'});});
+    }).catch(()=>{if(active)setState({key:'guest',phase:'failed',error:'Account offline. Using this device.'});});
     return()=>{active=false;controller?.close();};
   },[]);
-  if(url&&key&&!state)return <main className="account-loading" role="status">Opening your journal…</main>;
+  if(url&&key&&!state)return <main className="account-loading" role="status" aria-label="Loading"/>;
   return <App key={state?.key||'guest'} store={state?.store||guestStore} account={state?.signIn?state:null} accountError={state?.phase==='failed'?state.error:''}/>;
 }
