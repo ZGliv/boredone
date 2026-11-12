@@ -243,10 +243,49 @@ test('visit limits bound retained records without preventing edits or deletion',
   sql(save('seed-2',1,randomUUID(),null,[],true),owner);
   sql(save('replacement'),owner);
   sql(`insert into public.journal_visits(user_id,id,revision,mutation_id,payload,deleted)
-    select '${owner}', 'deleted-' || i, 1, gen_random_uuid(), null, true from generate_series(1,499) i;`);
+    select '${owner}', 'deleted-' || i, 1, gen_random_uuid(), null, true from generate_series(1,4499) i;`);
   sql(save('seed-3',1,randomUUID(),null,[],true),owner);
   fail(save('over-retained-limit'),owner,/journal_visit_limit/);
   sql(save('seed-4',1,randomUUID(),{...payload,notes:'Still editable'}),owner);
+});
+
+const savedSource = {url:'https://www.instagram.com/reel/abc/',app:'instagram',text:'ramen pop-up',savedAt:'2026-11-10T20:00:00.000Z',eventDate:'',expiresAt:'2026-11-16'};
+const unresolvedSave = {...payload, place:null, status:'saved', visitDate:'', with:'', source:savedSource};
+
+test('saves: unresolved saves are accepted only as saves with a valid source; old payloads are unchanged', () => {
+  const stored = JSON.parse(sql(save('save-unresolved',0,randomUUID(),unresolvedSave),a));
+  assert.deepEqual(stored.payload, unresolvedSave);
+  sql(save('save-resolved',0,randomUUID(),{...payload,status:'saved',visitDate:'',source:savedSource}),a);
+  sql(save('legacy-no-source',0,randomUUID(),payload),a);
+  sql(save('planned-with-source',0,randomUUID(),{...payload,status:'planned',visitDate:'',source:savedSource}),a);
+  fail(save('null-place-plan',0,randomUUID(),{...unresolvedSave,status:'planned'}),a,/journal_invalid_place/);
+  fail(save('null-place-no-source',0,randomUUID(),{...payload,place:null,status:'saved',visitDate:''}),a,/journal_invalid_place/);
+  fail(save('missing-place-key',0,randomUUID(),(({place,...rest})=>rest)(unresolvedSave)),a,/journal_invalid_payload/);
+  fail(save('save-with-visit',0,randomUUID(),{...unresolvedSave,visitDate:'2026-01-02'}),a,/journal_invalid_payload/);
+  for (const bad of [
+    {...savedSource,app:'myspace'}, {...savedSource,url:'javascript:alert(1)'}, {...savedSource,url:'x'.repeat(2049)},
+    {...savedSource,eventDate:'2026-02-30'}, {...savedSource,extra:'no'}, (({text,...rest})=>rest)(savedSource), {...savedSource,text:7}, 'link',
+  ]) fail(save('bad-source',0,randomUUID(),{...unresolvedSave,source:bad}),a,/journal_invalid_source/);
+  // Promoting a save to a plan is an ordinary revisioned update.
+  const planned = {...unresolvedSave,place:payload.place,status:'planned'};
+  assert.equal(JSON.parse(sql(save('save-unresolved',1,randomUUID(),planned),a)).revision,2);
+});
+
+test('saves have their own live budget; promoting a save respects the plans and memories cap', () => {
+  const owner = randomUUID();
+  sql(`insert into auth.users values('${owner}'); insert into bordone_private.journal_members(user_id) values('${owner}');
+    insert into public.journal_visits(user_id,id,revision,mutation_id,payload)
+    select '${owner}', 'seed-' || i, 1, gen_random_uuid(), ${json(payload)} from generate_series(1,500) i;`);
+  fail(save('one-more-memory'),owner,/journal_visit_limit/);
+  sql(save('pile-1',0,randomUUID(),unresolvedSave),owner);
+  fail(save('pile-1',1,randomUUID(),{...unresolvedSave,place:payload.place,status:'planned'}),owner,/journal_visit_limit/);
+  sql(save('pile-1',1,randomUUID(),{...unresolvedSave,notes:'Edits to a save at the plan cap still work'}),owner);
+  sql(`insert into public.journal_visits(user_id,id,revision,mutation_id,payload)
+    select '${owner}', 'pile-seed-' || i, 1, gen_random_uuid(), ${json(unresolvedSave)} from generate_series(1,999) i;`);
+  fail(save('pile-over'),owner,/journal_visit_limit/);
+  fail(save('pile-over',0,randomUUID(),unresolvedSave),owner,/journal_visit_limit/);
+  sql(save('seed-1',1,randomUUID(),null,[],true),owner);
+  sql(save('pile-1',2,randomUUID(),{...unresolvedSave,place:payload.place,status:'planned'}),owner);
 });
 
 test('a request prepared for account A is rejected if account B token is used', () => {

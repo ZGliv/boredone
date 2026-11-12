@@ -1,5 +1,8 @@
 // Account-only sync state. Guest journals never enter this queue automatically.
-import {validateOuting, validDate, localDate, MAX_PHOTOS} from './model.js';
+import {validateOuting, validDate, localDate, MAX_PHOTOS, MAX_RECORDS, checkCapacity} from './model.js';
+// Tombstones are permanent and Pile triage deletes often, so retained records
+// (live + deleted) get headroom well beyond the live limits. Matches the SQL cap.
+export const MAX_RETAINED = 5000;
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export const ACCOUNT_VERSION = 1;
 const clone = value => structuredClone(value);
@@ -50,7 +53,7 @@ export function remoteRecord(value,owner) {
 }
 export function validateAccount(value,owner) {
   if (!value || value.version!==ACCOUNT_VERSION || value.owner!==accountId(owner) || !Number.isSafeInteger(value.revision) || value.revision<0
-    || !Array.isArray(value.records) || value.records.length>1000 || !Array.isArray(value.assets) || value.assets.length>24000) throw Error('This account journal could not be read. It has not been changed.');
+    || !Array.isArray(value.records) || value.records.length>MAX_RETAINED || !Array.isArray(value.assets) || value.assets.length>24000) throw Error('This account journal could not be read. It has not been changed.');
   if(value.cleanup!==undefined&&(!Array.isArray(value.cleanup)||value.cleanup.length>24000||value.cleanup.some(id=>!UUID.test(id))||new Set(value.cleanup).size!==value.cleanup.length))throw Error('Invalid pending photo cleanup.');
   const assetIds=new Set(), ids=new Set(),jobIds=new Set();
   value.assets.forEach(a=>{validateAsset(a);if(a.verified!==undefined&&typeof a.verified!=='boolean')throw Error('Invalid photo verification receipt.');if(assetIds.has(a.id))throw Error('Duplicate account photo.');assetIds.add(a.id);});
@@ -65,7 +68,7 @@ export function validateAccount(value,owner) {
     if(r.job){if(jobIds.has(r.job.id))throw Error('Duplicate pending save.');jobIds.add(r.job.id);}
     if (r.conflict && (r.conflict.id!==r.id||!UUID.test(r.conflict.mutationId)||!Number.isInteger(r.conflict.revision)||r.conflict.revision<1||r.conflict.revision>2147483647)) throw Error('Invalid conflicting save.');
   });
-  if(value.records.filter(r=>r.desired).length>500)throw Error('Your account journal supports 500 outings.');
+  checkCapacity(value.records.filter(r=>r.desired).map(r=>r.desired.payload));
   return value;
 }
 function mergeAssets(state,assets){
@@ -85,7 +88,7 @@ function queueDesired(record,newId) {
 }
 export function saveDesired(state,entries,assets=[],newId=()=>crypto.randomUUID()) {
   const next=clone(state), incoming=new Map();
-  if(entries.length>500)throw Error('Your account journal supports 500 outings.');
+  if(entries.length>MAX_RECORDS)throw Error('Your account journal supports 500 plans and memories plus 1,000 saves.');
   for(const entry of entries){if(incoming.has(entry.id))throw Error('Duplicate account visit.');incoming.set(entry.id,validateContent(entry.content,entry.id));}
   mergeAssets(next,assets);
   for(const record of next.records){
