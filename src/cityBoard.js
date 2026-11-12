@@ -1,0 +1,472 @@
+// City board: "complete this city" as derived facts, never stored points.
+//
+// A board is one named, versioned edition of a city's places. Progress is
+// always recomputed from the private journal (visited outings), so deleting a
+// memory recomputes honestly. The only things a board carries forward are the
+// records an edition upgrade must not lose (see upgradeBoard).
+//
+// Pure module: no DOM, no clock. Dates come from the journal's visitDate.
+import { normalizeKind, venueGroup } from "./venues.js";
+import { validDate } from "./model.js";
+
+export const ELSEWHERE = "Elsewhere";
+export const MATCH_RADIUS_M = 120;
+export const COUNT_MILESTONES = [10, 25, 50, 100, 250];
+export const SET_MIN = 4;
+export const SET_MAX = 15;
+export const TASTE_GOAL = 5;
+
+const GROUP_LABELS = {
+  food: "places to eat",
+  drinks: "bars",
+  coffee: "coffee spots",
+  culture: "stages and screens",
+  play: "games and creative spots",
+};
+const KIND_PLURALS = {
+  bakery: "bakeries",
+  brewery: "breweries",
+  winery: "wineries",
+  ice_cream: "ice cream shops",
+  cafe: "cafes",
+  coffee_shop: "coffee shops",
+  bar: "bars",
+  pub: "pubs",
+  theatre: "theatres",
+  theater: "theaters",
+  cinema: "cinemas",
+  nightclub: "nightclubs",
+  comedy_club: "comedy clubs",
+  music_venue: "music venues",
+  restaurant: "restaurants",
+  biergarten: "beer gardens",
+  miniature_golf: "mini golf courses",
+  bowling_alley: "bowling alleys",
+  escape_game: "escape rooms",
+  amusement_arcade: "arcades",
+};
+export const kindPlural = (kind) => KIND_PLURALS[kind] || `${kind.replace(/_/g, " ")}s`;
+
+export function normalizeName(name = "") {
+  return String(name)
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/\([^)]*\)/g, " ")
+    .replace(/&/g, " and ")
+    .replace(/['’`]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/^the /, "");
+}
+
+export function slug(value = "") {
+  return normalizeName(value).replace(/ /g, "-");
+}
+
+export function distanceM(a, b) {
+  const rad = Math.PI / 180;
+  const dLat = (b.lat - a.lat) * rad;
+  const dLng = (b.lng - a.lng) * rad;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371000 * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+const hasPoint = (p) => Number.isFinite(p?.lat) && Number.isFinite(p?.lng);
+
+// Small deterministic hash (FNV-1a) so a set id changes only when membership does.
+function hash(text) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(36);
+}
+
+function boardPlace(place) {
+  const neighborhood = typeof place.neighborhood === "string" && place.neighborhood.trim() ? place.neighborhood.trim() : ELSEWHERE;
+  return { ...place, kind: normalizeKind(place.category), neighborhood };
+}
+
+const byName = (a, b) => (a.name === ELSEWHERE) - (b.name === ELSEWHERE) || a.name.localeCompare(b.name);
+
+// A board is one edition of a city. Places without a usable id, name,
+// coordinates or venue kind are left out (and counted), never guessed at.
+export function makeBoard({ cityId, cityName, edition, builtAt, places }) {
+  if (typeof cityId !== "string" || !cityId.trim()) throw new Error("A board needs a city id.");
+  if (typeof edition !== "string" || !edition.trim()) throw new Error("A board needs an edition.");
+  if (!Array.isArray(places)) throw new Error("A board needs a list of places.");
+  const kept = new Map();
+  let skipped = 0;
+  for (const place of places) {
+    if (!place || typeof place.id !== "string" || !place.id || kept.has(place.id) ||
+      typeof place.name !== "string" || !place.name.trim() || !hasPoint(place) || !venueGroup(place.category)) {
+      skipped++;
+      continue;
+    }
+    kept.set(place.id, boardPlace(place));
+  }
+  const list = [...kept.values()].sort((a, b) => a.id.localeCompare(b.id));
+  const placeIndex = {};
+  list.forEach((place, index) => { placeIndex[place.id] = index; });
+  return {
+    cityId,
+    cityName: typeof cityName === "string" && cityName.trim() ? cityName.trim() : cityId,
+    edition,
+    builtAt: typeof builtAt === "string" ? builtAt : "",
+    total: list.length,
+    places: list,
+    placeIndex,
+    neighborhoods: [...new Set(list.map((p) => p.neighborhood))].sort((a, b) => byName({ name: a }, { name: b })),
+    kinds: [...new Set(list.map((p) => p.kind))].sort(),
+    skipped,
+    retired: [],
+    honors: [],
+    previousEditions: [],
+  };
+}
+
+// Identity matching. Journal records carry ids from the guide the user saved
+// them from; a city pack may use different ids for the same venue. Rules:
+//  1. An exact id match always wins.
+//  2. Otherwise the same normalized name within 120 m, nearest first.
+//  3. Each visit credits at most one place, and a place is credited once;
+//     its earned date is the earliest visit that matched it.
+// Visits without a valid visit date or coordinates (for rule 2) never count.
+export function matchVisits(candidates, outings = []) {
+  const ids = new Map(candidates.map((p) => [p.id, p]));
+  const names = new Map();
+  for (const place of candidates) {
+    const key = normalizeName(place.name);
+    if (!key || !hasPoint(place)) continue;
+    if (!names.has(key)) names.set(key, []);
+    names.get(key).push(place);
+  }
+  const visits = outings
+    .filter((o) => o && o.status === "visited" && o.place && typeof o.place.id === "string" && validDate(o.visitDate))
+    .sort((a, b) => a.visitDate.localeCompare(b.visitDate) || String(a.createdAt || "").localeCompare(String(b.createdAt || "")) || String(a.id || "").localeCompare(String(b.id || "")));
+  const earned = new Map();
+  const credit = (place, visit, via) => {
+    const prior = earned.get(place.id);
+    if (!prior) earned.set(place.id, { placeId: place.id, visitDate: visit.visitDate, outingId: visit.id || "", via });
+    else if (visit.visitDate < prior.visitDate) earned.set(place.id, { ...prior, visitDate: visit.visitDate, outingId: visit.id || "" });
+  };
+  const rest = [];
+  for (const visit of visits) {
+    const place = ids.get(visit.place.id);
+    if (place) credit(place, visit, "id");
+    else rest.push(visit);
+  }
+  for (const visit of rest) {
+    if (!hasPoint(visit.place)) continue;
+    const pool = names.get(normalizeName(visit.place.name)) || [];
+    let best = null;
+    let bestDistance = Infinity;
+    for (const place of pool) {
+      const d = distanceM(visit.place, place);
+      if (d <= MATCH_RADIUS_M && (d < bestDistance || (d === bestDistance && place.id < best.id))) {
+        best = place;
+        bestDistance = d;
+      }
+    }
+    if (best) credit(best, visit, "name");
+  }
+  return earned;
+}
+
+// Current places and retired places are matched together so one visit can
+// never count toward both a current place and a retired one.
+function earnedOn(board, outings) {
+  const retired = (board.retired || []).map((p) => ({ ...p, retired: true }));
+  const earned = matchVisits([...board.places, ...retired], outings);
+  const current = new Map();
+  const retiredEarned = new Map();
+  for (const [id, row] of earned) (board.placeIndex[id] !== undefined ? current : retiredEarned).set(id, row);
+  return { current, retired: retiredEarned };
+}
+
+const placeOf = (board, id) => board.places[board.placeIndex[id]];
+const percent = (done, total) => (total ? Math.floor((done / total) * 100) : 0);
+
+function tally(board, earned, keyOf) {
+  const rows = new Map();
+  for (const place of board.places) {
+    const key = keyOf(place);
+    if (!rows.has(key)) rows.set(key, { done: 0, total: 0, dates: [] });
+    const row = rows.get(key);
+    row.total++;
+    const hit = earned.get(place.id);
+    if (hit) {
+      row.done++;
+      row.dates.push(hit.visitDate);
+    }
+  }
+  return rows;
+}
+
+function honorFor(board, type, key) {
+  return (board.honors || []).find((h) => h.type === type && h.key === key) || null;
+}
+
+export function boardProgress(board, outings = []) {
+  const { current, retired } = earnedOn(board, outings);
+  const hoods = tally(board, current, (p) => p.neighborhood);
+  const kinds = tally(board, current, (p) => p.kind);
+  const byNeighborhood = [...hoods].map(([name, row]) => {
+    const honor = name === ELSEWHERE ? null : honorFor(board, "neighborhood", name);
+    const completeNow = name !== ELSEWHERE && row.total > 0 && row.done === row.total;
+    return { name, done: row.done, total: row.total, complete: completeNow || !!honor, completedEdition: completeNow ? board.edition : honor?.edition || null };
+  }).sort(byName);
+  const byKind = [...kinds].map(([kind, row]) => ({ kind, done: row.done, total: row.total })).sort((a, b) => a.kind.localeCompare(b.kind));
+  const rows = [...current.values()].map((hit) => ({ ...hit, place: placeOf(board, hit.placeId) }));
+  const firsts = [];
+  for (const row of [...rows].sort((a, b) => a.visitDate.localeCompare(b.visitDate) || a.placeId.localeCompare(b.placeId))) {
+    const hood = row.place.neighborhood;
+    if (hood !== ELSEWHERE && !firsts.some((f) => f.neighborhood === hood)) firsts.push({ neighborhood: hood, placeId: row.placeId, name: row.place.name, visitDate: row.visitDate });
+  }
+  const recent = rows
+    .sort((a, b) => b.visitDate.localeCompare(a.visitDate) || a.placeId.localeCompare(b.placeId))
+    .slice(0, 5)
+    .map((row) => ({ placeId: row.placeId, name: row.place.name, neighborhood: row.place.neighborhood, visitDate: row.visitDate }));
+  return {
+    cityId: board.cityId,
+    edition: board.edition,
+    done: current.size,
+    total: board.total,
+    percent: percent(current.size, board.total),
+    retired: retired.size,
+    byNeighborhood,
+    byKind,
+    firsts,
+    recent,
+  };
+}
+
+function makeSet(board, { key, name, rule, goal, members, scope }) {
+  const ids = members.map((p) => p.id).sort();
+  return {
+    id: `${board.cityId}/${key}/${hash(ids.join("|"))}`,
+    key,
+    name,
+    rule,
+    goal,
+    size: ids.length,
+    scope,
+    description: rule === "all" ? `Visit all ${ids.length}` : `Visit any ${goal} of ${ids.length}`,
+    members: ids,
+    places: members
+      .slice()
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map(({ id, name: placeName, lat, lng, kind, neighborhood }) => ({ id, name: placeName, lat, lng, kind, neighborhood })),
+  };
+}
+
+// Sets are small, finishable collections built only from what the edition
+// actually contains. A set's id is its rule plus a hash of its members, so it
+// stays identical across editions while membership is the same and becomes a
+// new set (leaving the old completion intact) when membership changes.
+export function generateSets(board) {
+  const sets = [];
+  const hoods = new Map();
+  const kinds = new Map();
+  for (const place of board.places) {
+    if (!kinds.has(place.kind)) kinds.set(place.kind, []);
+    kinds.get(place.kind).push(place);
+    if (place.neighborhood === ELSEWHERE) continue;
+    if (!hoods.has(place.neighborhood)) hoods.set(place.neighborhood, []);
+    hoods.get(place.neighborhood).push(place);
+  }
+  for (const [hood, members] of hoods) {
+    const groups = new Map();
+    for (const place of members) {
+      const group = venueGroup(place.kind);
+      if (!groups.has(group)) groups.set(group, []);
+      groups.get(group).push(place);
+    }
+    for (const [group, list] of groups) {
+      if (list.length < SET_MIN || list.length > SET_MAX) continue;
+      sets.push(makeSet(board, { key: `hood-${group}:${slug(hood)}`, name: `${hood} ${GROUP_LABELS[group]}`, rule: "all", goal: list.length, members: list, scope: { neighborhood: hood, group } }));
+    }
+    if (members.length > TASTE_GOAL) {
+      sets.push(makeSet(board, { key: `taste:${slug(hood)}`, name: `Taste of ${hood}`, rule: "any", goal: TASTE_GOAL, members, scope: { neighborhood: hood } }));
+    }
+  }
+  for (const [kind, list] of kinds) {
+    if (list.length < SET_MIN || list.length > SET_MAX) continue;
+    sets.push(makeSet(board, { key: `city-${kind}`, name: `${board.cityName} ${kindPlural(kind)}`, rule: "all", goal: list.length, members: list, scope: { kind } }));
+  }
+  return sets.sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id));
+}
+
+function progressFromEarned(set, earned) {
+  const dates = set.members.map((id) => earned.get(id)?.visitDate).filter(Boolean).sort();
+  const done = dates.length;
+  const complete = done >= set.goal;
+  return {
+    id: set.id,
+    name: set.name,
+    done,
+    goal: set.goal,
+    remaining: Math.max(0, set.goal - done),
+    complete,
+    completedOn: complete ? dates[set.goal - 1] : null,
+    doneIds: set.members.filter((id) => earned.has(id)),
+  };
+}
+
+// With a board, matching is done against the whole edition so a set agrees
+// exactly with boardProgress; without one, against the set's own places.
+export function setProgress(set, outings = [], board = null) {
+  const earned = board ? earnedOn(board, outings).current : matchVisits(set.places, outings);
+  return progressFromEarned(set, earned);
+}
+
+// Milestones are facts derived from the journal, each dated by the visit
+// that earned it. Nothing here is stored or awarded as points.
+export function milestones(board, outings = []) {
+  const { current, retired } = earnedOn(board, outings);
+  const out = new Map();
+  const add = (row) => {
+    const prior = out.get(row.id);
+    if (!prior || row.date < prior.date) out.set(row.id, row);
+  };
+  const hoods = tally(board, current, (p) => p.neighborhood);
+  for (const [name, row] of hoods) {
+    if (name === ELSEWHERE || !row.done) continue;
+    const dates = row.dates.sort();
+    add({ id: `first:${slug(name)}`, type: "first-in-neighborhood", label: `First place in ${name}`, date: dates[0], edition: board.edition });
+    if (row.done === row.total) add({ id: `neighborhood:${slug(name)}`, type: "neighborhood-complete", label: `Finished ${name}`, date: dates[dates.length - 1], edition: board.edition });
+  }
+  // A kind with a single place is not much of a collection; it needs two.
+  const kinds = tally(board, current, (p) => p.kind);
+  for (const [kind, row] of kinds) {
+    if (row.total < 2 || row.done !== row.total) continue;
+    add({ id: `kind:${kind}`, type: "kind-complete", label: `Every one of ${board.cityName}'s ${kindPlural(kind)}`, date: row.dates.sort()[row.dates.length - 1], edition: board.edition });
+  }
+  // Count milestones are lifetime places on this city's board, so a place
+  // that closed after you went still counts.
+  const allDates = [...current.values(), ...retired.values()].map((r) => r.visitDate).sort();
+  for (const n of COUNT_MILESTONES) {
+    if (allDates.length >= n) add({ id: `count:${n}`, type: "places", label: `${n} places in ${board.cityName}`, date: allDates[n - 1], edition: board.edition });
+  }
+  for (const set of generateSets(board)) {
+    const p = progressFromEarned(set, current);
+    if (p.complete) add({ id: `set:${set.id}`, type: "set-complete", label: `Completed ${set.name}`, date: p.completedOn, edition: board.edition });
+  }
+  for (const honor of board.honors || []) {
+    const id = honor.type === "set" ? `set:${honor.key}` : honor.type === "kind" ? `kind:${honor.key}` : `neighborhood:${slug(honor.key)}`;
+    const type = honor.type === "set" ? "set-complete" : honor.type === "kind" ? "kind-complete" : "neighborhood-complete";
+    add({ id, type, label: honor.label, date: honor.earnedOn, edition: honor.edition });
+  }
+  return [...out.values()].sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+}
+
+// Edition upgrades: what you earned stays earned.
+//
+// In plain English: a new edition replaces the list of places, but it never
+// takes anything away from you.
+//  - If you went to a place and it is not in the new edition (it closed, or
+//    the new data dropped it), it moves to the board's "retired" list. It no
+//    longer counts toward the new edition's total, but it still shows as a
+//    place you did, and still counts toward lifetime milestones like
+//    "25 places". It only drops off if you delete the memory itself.
+//  - If you finished a neighborhood, a kind or a set under the old edition,
+//    that completion is written down as an honor with the date and edition it
+//    was earned in. A new edition adding places to that neighborhood shows the
+//    new remaining count, but the area stays marked as completed.
+//  - Nothing here deletes or edits journal records.
+export function upgradeBoard(oldBoard, newBoard, outings = []) {
+  if (oldBoard.cityId !== newBoard.cityId) throw new Error("Cannot upgrade a board to a different city.");
+  const { current: oldEarned } = earnedOn(oldBoard, outings);
+  const newNames = new Map();
+  for (const place of newBoard.places) {
+    const key = normalizeName(place.name);
+    if (!newNames.has(key)) newNames.set(key, []);
+    newNames.get(key).push(place);
+  }
+  const stillListed = (place) => newBoard.placeIndex[place.id] !== undefined ||
+    (newNames.get(normalizeName(place.name)) || []).some((p) => distanceM(p, place) <= MATCH_RADIUS_M);
+
+  const retired = new Map();
+  for (const place of oldBoard.retired || []) if (!stillListed(place)) retired.set(place.id, place);
+  for (const [id, hit] of oldEarned) {
+    const place = placeOf(oldBoard, id);
+    if (stillListed(place) || retired.has(id)) continue;
+    const { id: pid, name, lat, lng, category, kind, neighborhood, address, website, source, sourceUrl } = place;
+    retired.set(id, { id: pid, name, lat, lng, category, kind, neighborhood, address, website, source, sourceUrl, retiredFrom: oldBoard.edition, visitDate: hit.visitDate });
+  }
+
+  const honors = new Map((oldBoard.honors || []).map((h) => [`${h.type}:${h.key}`, h]));
+  const keep = (honor) => {
+    const id = `${honor.type}:${honor.key}`;
+    if (!honors.has(id)) honors.set(id, honor);
+  };
+  const hoods = tally(oldBoard, oldEarned, (p) => p.neighborhood);
+  for (const [name, row] of hoods) {
+    if (name !== ELSEWHERE && row.total && row.done === row.total) keep({ type: "neighborhood", key: name, label: `Finished ${name}`, earnedOn: row.dates.sort()[row.dates.length - 1], edition: oldBoard.edition });
+  }
+  const kinds = tally(oldBoard, oldEarned, (p) => p.kind);
+  for (const [kind, row] of kinds) {
+    if (row.total >= 2 && row.done === row.total) keep({ type: "kind", key: kind, label: `Every one of ${oldBoard.cityName}'s ${kindPlural(kind)}`, earnedOn: row.dates.sort()[row.dates.length - 1], edition: oldBoard.edition });
+  }
+  for (const set of generateSets(oldBoard)) {
+    const p = progressFromEarned(set, oldEarned);
+    if (p.complete) keep({ type: "set", key: set.id, name: set.name, label: `Completed ${set.name}`, earnedOn: p.completedOn, edition: oldBoard.edition });
+  }
+
+  return {
+    ...newBoard,
+    retired: [...retired.values()].sort((a, b) => a.id.localeCompare(b.id)),
+    honors: [...honors.values()].sort((a, b) => a.earnedOn.localeCompare(b.earnedOn) || `${a.type}:${a.key}`.localeCompare(`${b.type}:${b.key}`)),
+    previousEditions: [...new Set([...(oldBoard.previousEditions || []), oldBoard.edition])],
+  };
+}
+
+// Suggestions that make progress feel reachable. Groups the user has already
+// started come first, then the group closest to done, then the nearest place.
+// Meant as a gentle tiebreaker for tonight's picks, never an override.
+export function nextUp(board, outings = [], { location = null, limit = 3 } = {}) {
+  const { current } = earnedOn(board, outings);
+  const groups = [];
+  const hoods = new Map();
+  for (const place of board.places) {
+    if (place.neighborhood === ELSEWHERE) continue;
+    if (!hoods.has(place.neighborhood)) hoods.set(place.neighborhood, []);
+    hoods.get(place.neighborhood).push(place.id);
+  }
+  for (const [name, ids] of hoods) {
+    const done = ids.filter((id) => current.has(id)).length;
+    const remaining = ids.length - done;
+    if (!remaining) continue;
+    groups.push({ id: `neighborhood:${slug(name)}`, name, ids, done, remaining, reason: done ? `${remaining} left to finish ${name}` : `Would be your first place in ${name}` });
+  }
+  for (const set of generateSets(board)) {
+    const p = progressFromEarned(set, current);
+    if (p.complete) continue;
+    const reason = set.rule === "all" ? `${p.remaining} left to finish ${set.name}` : `${p.remaining} more for ${set.name}`;
+    groups.push({ id: `set:${set.id}`, name: set.name, ids: set.members, done: p.done, remaining: p.remaining, reason });
+  }
+  const point = hasPoint(location) ? location : null;
+  const best = new Map();
+  for (const group of groups) {
+    for (const id of group.ids) {
+      if (current.has(id)) continue;
+      const place = placeOf(board, id);
+      const distanceKm = point ? Math.round(distanceM(point, place) / 100) / 10 : null;
+      const row = { place, reason: group.reason, groupId: group.id, remaining: group.remaining, started: group.done > 0, distanceKm };
+      const prior = best.get(id);
+      if (!prior || rank(row, prior) < 0) best.set(id, row);
+    }
+  }
+  return [...best.values()].sort(rank).slice(0, Math.max(0, limit));
+}
+
+function rank(a, b) {
+  return (b.started - a.started) ||
+    (a.remaining - b.remaining) ||
+    ((a.distanceKm ?? 0) - (b.distanceKm ?? 0)) ||
+    a.groupId.localeCompare(b.groupId) ||
+    a.place.name.localeCompare(b.place.name) ||
+    a.place.id.localeCompare(b.place.id);
+}
