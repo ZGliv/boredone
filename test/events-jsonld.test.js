@@ -30,7 +30,8 @@ test('finds events inside @graph, arrays, ItemLists and subtype arrays; skips ca
 test('date forms: offset kept in the source zone, date-only is all day, floating needs a known zone',()=>{
  const r=extractEvents(page({...base,startDate:'2026-11-14T02:00:00Z'},{...base,name:'Fair',startDate:'2026-11-01'},{...base,name:'Local',startDate:'2026-07-04T21:00'}),opts);
  assert.equal(r.events.find(e=>e.title==='Late Show').start,'2026-11-13T21:00:00-05:00');
- const fair=r.events.find(e=>e.title==='Fair');assert.equal(fair.start,'2026-11-01T00:00:00-04:00');assert.equal(fair.end,'2026-11-02T00:00:00-05:00');
+ const fair=r.events.find(e=>e.title==='Fair');assert.equal(fair.start,'2026-11-01T00:00:00-04:00');assert.equal(fair.end,'2026-11-02T00:00:00-05:00');assert.equal(fair.allDay,true);
+ assert.equal(r.events.find(e=>e.title==='Late Show').allDay,false);
  assert.equal(r.events.find(e=>e.title==='Local').start,'2026-07-04T21:00:00-04:00');
  const noZone=extractEvents(page({...base,startDate:'2026-07-04T21:00'},{...base,name:'Kept',startDate:'2026-07-04T21:00:00+01:00'}),{...opts,timeZone:''});
  assert.deepEqual(noZone.skipped,{badDate:1});assert.equal(noZone.events[0].start,'2026-07-04T21:00:00+01:00');

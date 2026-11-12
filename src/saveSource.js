@@ -1,5 +1,6 @@
 // Pure helpers for a "save": a shared link plus whatever text came with it.
 // Shared by the client and server/resolve-save.js. Nothing here fetches.
+import {MAX_SAVE_TEXT} from './model.js';
 export const SAVE_APPS = ['instagram','tiktok','youtube','google-maps','web','note'];
 const NOTE = Object.freeze({app:'note',kind:'note',id:'',canonicalUrl:'',hint:''});
 // Click-tracking and share-attribution parameters. They identify the sharer,
@@ -161,9 +162,15 @@ export function resolveDatePhrase(phrase, today) {
  return iso(candidate);
 }
 
+// Cut to the save limit with an ellipsis, never leaving half an emoji.
+export function clipText(value, max = MAX_SAVE_TEXT) {
+ const text = String(value ?? '');
+ return text.length <= max ? text : text.slice(0, max - 1).replace(/[\ud800-\udbff]$/, '') + '…';
+}
+
 // The `source` field of a save record. text is what the user or share sheet
 // supplied; nothing in it is generated.
 export function saveSource({url = '', text = '', savedAt, eventDate = '', expiresAt = ''} = {}) {
  const parsed = parseSaveUrl(url);
- return {url: parsed.canonicalUrl, app: parsed.app, text: clean(text).slice(0,4000), savedAt: savedAt || new Date().toISOString(), eventDate: isIsoDate(eventDate) ? eventDate : '', expiresAt: isIsoDate(expiresAt) ? expiresAt : ''};
+ return {url: parsed.canonicalUrl, app: parsed.app, text: clipText(clean(text)), savedAt: savedAt || new Date().toISOString(), eventDate: isIsoDate(eventDate) ? eventDate : '', expiresAt: isIsoDate(expiresAt) ? expiresAt : ''};
 }

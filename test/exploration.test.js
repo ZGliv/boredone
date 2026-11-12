@@ -59,6 +59,12 @@ test("specific place symbols distinguish venue types without changing mood group
   assert.equal(placeKind("Restaurant"), "cafe");
   assert.equal(placeKind("Museum"), "gallery");
 });
+test("city-pack venue kinds file under their venue group, never Outside by default", () => {
+  const expected = { brewery: "cafe", winery: "cafe", nightclub: "cafe", biergarten: "cafe", bar: "cafe", pub: "cafe", music_venue: "gallery", comedy_club: "gallery", dance_studio: "play", ice_rink: "play", bicycle_rental: "play", horseback_riding: "play", trampoline_park: "play" };
+  for (const [kind, landmark] of Object.entries(expected)) assert.equal(placeKind(kind), landmark, kind);
+  assert.equal(placeKind("Park"), "garden");
+  assert.equal(placeKind(null), "garden");
+});
 
 test("small overlapping collections also cluster while selected places stay reachable", () => {
  const points = ["a","b","c"].map(id=>({place:{id},x:20,y:20}));

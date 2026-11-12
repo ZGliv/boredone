@@ -70,7 +70,7 @@ test('resolver: an event venue the text never names is cleared before matching',
  const r=await resolver(m)({text:'Steelers game Sunday then the Holiday Market in Market Square'});
  assert.equal(r.candidates[0].venue,'');assert.equal(r.candidates[1].venue,'Market Square');
 });
-test('resolver: the 4000-character cap never splits an emoji into a lone surrogate',async()=>{
+test('resolver: the text cap never splits an emoji into a lone surrogate',async()=>{
  const m=mock([]);const r=await resolver(m)({text:'Mia'+'🍕'.repeat(MAX_TEXT)});
  assert.equal(r.truncated,true);assert.ok(!/[\ud800-\udbff](?![\udc00-\udfff])/.test(m.calls[0].messages[0].content));
 });

@@ -10,8 +10,8 @@ test('Ticketmaster events normalize with the venue zone offset; cancelled and un
  const r=normalizeTicketmaster(fixture,{fetchedAt:'2026-11-11T00:00:00Z'});
  assert.deepEqual(r.events.map(e=>e.id),['tm-vvG1zZfbJQpVWp','tm-docs-all-day','tm-docs-rescheduled']);
  const [a,allDay,moved]=r.events;
- assert.deepEqual(a,{id:'tm-vvG1zZfbJQpVWp',title:'Docs example event',venueName:'Madison Square Garden',lat:40.7497062,lng:-73.9916006,start:'2016-07-27T19:30:00-04:00',end:'',url:'https://www.ticketmaster.com/event/docs-example',source:'ticketmaster',sourceName:'Ticketmaster',placeId:'',fetchedAt:'2026-11-11T00:00:00Z'});
- assert.equal(allDay.start,'2016-07-28T00:00:00-04:00');assert.equal(allDay.end,'2016-07-29T00:00:00-04:00');
+ assert.deepEqual(a,{id:'tm-vvG1zZfbJQpVWp',title:'Docs example event',venueName:'Madison Square Garden',lat:40.7497062,lng:-73.9916006,start:'2016-07-27T19:30:00-04:00',end:'',allDay:false,url:'https://www.ticketmaster.com/event/docs-example',source:'ticketmaster',sourceName:'Ticketmaster',placeId:'',fetchedAt:'2026-11-11T00:00:00Z'});
+ assert.equal(allDay.start,'2016-07-28T00:00:00-04:00');assert.equal(allDay.end,'2016-07-29T00:00:00-04:00');assert.equal(allDay.allDay,true);assert.equal(moved.allDay,false);
  assert.equal(moved.lat,null);assert.equal(moved.start,'2016-07-29T20:00:00-04:00');
  assert.deepEqual(r.skipped,{cancelled:1,noDate:1});
  assert.deepEqual(normalizeTicketmaster({}).events,[]);assert.deepEqual(normalizeTicketmaster(null).events,[]);

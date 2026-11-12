@@ -287,6 +287,8 @@ export function buildPack(raw, city, builtAt = new Date().toISOString()) {
  if (places.some(p => p.neighborhood)) notices.push(LICENCE_NOTICES.ODbL);
  return {
   city: city.name,
+  // What board labels use: "Columbus bars", not "Columbus, OH bars".
+  shortName: city.shortName || city.name,
   slug: city.slug,
   center,
   radiusKm,

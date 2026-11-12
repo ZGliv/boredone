@@ -1,3 +1,5 @@
+import { venueGroup } from "./venues.js";
+
 // A place gets one pin even when the journal contains several visits.
 // Prefer the most recent visit so its current metadata wins deterministically.
 export function journalPlaces(outings, status) {
@@ -23,8 +25,14 @@ export const LANDMARKS = [
   { id: "gallery", title: "Curious corners", label: "Arts & culture", category: "culture" },
   { id: "play", title: "Just for fun", label: "Something playful", category: "play" },
 ];
+// Landmark for a venue kind comes from its venue group, so a brewery or a
+// nightclub is never filed under Outside and a biergarten never under Arts.
+// The word patterns are only for older free-text map categories.
+const GROUP_LANDMARK = { food: "cafe", coffee: "cafe", drinks: "cafe", culture: "gallery", play: "play" };
 export function placeKind(category = "") {
-  const value = category.toLowerCase();
+  const group = venueGroup(category);
+  if (group) return GROUP_LANDMARK[group];
+  const value = String(category || "").toLowerCase();
   if (/cafe|café|coffee|food|restaurant|bakery|bar|pub|tea|ice.cream/.test(value)) return "cafe";
   if (/art.studio/.test(value)) return "play";
   if (/art|museum|gallery|theatre|theater|culture|library|cinema|attraction/.test(value)) return "gallery";

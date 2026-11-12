@@ -1,7 +1,7 @@
 // The Pile: things saved from anywhere. A save is an ordinary outing with
 // status "saved", so storage, sync, backup and account removal already cover it.
 import {SAVE_APPS, localDate, safeUrl, validDate, validateOuting, validatePlace} from './model.js';
-import {parseSaveUrl, TRACKING as SHARE_TRACKING} from './saveSource.js';
+import {parseSaveUrl, clipText, TRACKING as SHARE_TRACKING} from './saveSource.js';
 
 const APP_HOSTS = [
   ['instagram', /(^|\.)instagram\.com$|(^|\.)instagr\.am$/],
@@ -40,7 +40,7 @@ export function makeSave({url = '', app, text = '', place = null, eventDate = ''
     id: crypto.randomUUID(),
     place: place ? validatePlace(place) : null,
     status: 'saved', planDate: '', visitDate: '', notes: '', with: '', rating: 0, photos: [],
-    source: {url: link, app: SAVE_APPS.includes(app) ? app : appFor(link), text: typeof text === 'string' ? text.trim() : text, savedAt: stamp, eventDate, expiresAt},
+    source: {url: link, app: SAVE_APPS.includes(app) ? app : appFor(link), text: typeof text === 'string' ? clipText(text.trim()) : text, savedAt: stamp, eventDate, expiresAt},
     createdAt: stamp, updatedAt: stamp,
   });
 }

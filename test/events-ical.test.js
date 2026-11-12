@@ -38,7 +38,8 @@ test('DTSTART forms: UTC, TZID (incl. prefixed), floating with calendar zone, an
 });
 test('all-day events cover the local day, including the day the clocks change',()=>{
  const r=one(['DTSTART;VALUE=DATE:20261101'],{timeZone:NY});
- assert.equal(r.events[0].start,'2026-11-01T00:00:00-04:00');assert.equal(r.events[0].end,'2026-11-02T00:00:00-05:00');
+ assert.equal(r.events[0].start,'2026-11-01T00:00:00-04:00');assert.equal(r.events[0].end,'2026-11-02T00:00:00-05:00');assert.equal(r.events[0].allDay,true);
+ assert.equal(one(['DTSTART;TZID=America/New_York:20261113T200000'],{timeZone:NY}).events[0].allDay,false);
  const multi=one(['DTSTART;VALUE=DATE:20261113','DTEND;VALUE=DATE:20261116'],{timeZone:NY});assert.equal(multi.events[0].end,'2026-11-16T00:00:00-05:00');
  assert.equal(one(['DTSTART;VALUE=DATE:20261113']).skipped.unknownTimeZone,1);
 });

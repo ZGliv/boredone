@@ -1,5 +1,6 @@
 {
   "city": "Pittsburgh",
+  "shortName": "Pittsburgh",
   "slug": "pittsburgh",
   "center": {
     "lat": 40.44,

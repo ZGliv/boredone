@@ -1,5 +1,6 @@
 {
   "city": "Columbus, OH",
+  "shortName": "Columbus",
   "slug": "columbus",
   "center": {
     "lat": 39.9612,
