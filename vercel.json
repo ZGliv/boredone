@@ -14,6 +14,12 @@
     },
     "api/account-removal.js": {
       "maxDuration": 60
+    },
+    "api/resolve-save.js": {
+      "maxDuration": 30
+    },
+    "api/events.js": {
+      "maxDuration": 30
     }
   },
   "headers": [

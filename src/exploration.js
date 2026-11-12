@@ -2,7 +2,7 @@
 // Prefer the most recent visit so its current metadata wins deterministically.
 export function journalPlaces(outings, status) {
   const places = new Map();
-  const rows = outings.filter((outing) => outing.status === status).sort((a, b) =>
+  const rows = outings.filter((outing) => outing.status === status && outing.place).sort((a, b) =>
     (b.visitDate || b.planDate || "").localeCompare(a.visitDate || a.planDate || "") ||
     b.updatedAt.localeCompare(a.updatedAt));
   for (const outing of rows) {
@@ -12,8 +12,8 @@ export function journalPlaces(outings, status) {
 }
 
 export function pinStatus(placeId, outings) {
-  if (outings.some((outing) => outing.place.id === placeId && outing.status === "planned")) return "planned";
-  if (outings.some((outing) => outing.place.id === placeId && outing.status === "visited")) return "visited";
+  if (outings.some((outing) => outing.status === "planned" && outing.place?.id === placeId)) return "planned";
+  if (outings.some((outing) => outing.status === "visited" && outing.place?.id === placeId)) return "visited";
   return "discovered";
 }
 
@@ -32,11 +32,11 @@ export function placeKind(category = "") {
   return "garden";
 }
 export function collectionStamps(outings) {
-  const visits = outings.filter((outing) => outing.status === "visited");
+  const visits = outings.filter((outing) => outing.status === "visited" && outing.place);
   return LANDMARKS.map((kind) => ({ ...kind, count: new Set(visits.filter((outing) => placeKind(outing.place.category) === kind.id).map((outing) => outing.place.id)).size }));
 }
 export function chooseUnvisited(places, outings, currentId, random = Math.random) {
-  const visited = new Set(outings.filter((outing) => outing.status === "visited").map((outing) => outing.place.id));
+  const visited = new Set(outings.filter((outing) => outing.status === "visited" && outing.place).map((outing) => outing.place.id));
   const newPlaces = places.filter((place) => !visited.has(place.id) && place.id !== currentId);
   const choices = newPlaces.length ? newPlaces : places.filter((place) => place.id !== currentId);
   const pool = choices.length ? choices : places;

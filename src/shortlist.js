@@ -21,7 +21,7 @@ export function rankPlaces(places, outings, category = 'all', time = '60') {
     return (!kind || placeKind(place.category) === kind.id) &&
       (choice.maxKm === Infinity || (Number.isFinite(place.distanceKm) && place.distanceKm >= 0 && place.distanceKm <= choice.maxKm));
   }).map((place) => {
-    const history = outings.filter((outing) => outing.place.id === place.id);
+    const history = outings.filter((outing) => outing.status !== 'saved' && outing.place?.id === place.id);
     const planned = history.some((outing) => outing.status === 'planned');
     const visited = history.some((outing) => outing.status === 'visited');
     return { place, priority: planned ? 0 : visited ? 2 : 1, reason: [

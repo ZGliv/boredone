@@ -44,6 +44,7 @@ const KIND_PLURALS = {
   bowling_alley: "bowling alleys",
   escape_game: "escape rooms",
   amusement_arcade: "arcades",
+  horseback_riding: "horseback riding stables",
 };
 export const kindPlural = (kind) => KIND_PLURALS[kind] || `${kind.replace(/_/g, " ")}s`;
 
@@ -92,6 +93,12 @@ function boardPlace(place) {
 }
 
 const byName = (a, b) => (a.name === ELSEWHERE) - (b.name === ELSEWHERE) || a.name.localeCompare(b.name);
+
+// A city pack (data/city-packs/*.json) names these fields slug, city and
+// release; the Overture release is the edition.
+export function boardFromPack(pack) {
+  return makeBoard({ cityId: pack?.slug, cityName: pack?.city, edition: pack?.release, builtAt: pack?.builtAt, places: pack?.places });
+}
 
 // A board is one edition of a city. Places without a usable id, name,
 // coordinates or venue kind are left out (and counted), never guessed at.

@@ -1,4 +1,5 @@
 import { displayDate, localDate } from "../model.js";
+import { outingLabel } from "../saves.js";
 
 // Pure helpers shared by the journal pages. No React, no storage.
 export function sortPlans(outings) {
@@ -21,7 +22,7 @@ export function sortMemories(outings) {
 }
 export function searchOutings(outings, query) {
   return outings.filter((o) =>
-    `${o.place.name} ${o.place.category} ${o.place.address} ${o.notes} ${o.with} ${o.visitDate} ${displayDate(o.visitDate)}`
+    `${outingLabel(o)} ${o.place?.category || ""} ${o.place?.address || ""} ${o.notes} ${o.with} ${o.visitDate} ${displayDate(o.visitDate)}`
       .toLowerCase()
       .includes(query.toLowerCase()),
   );

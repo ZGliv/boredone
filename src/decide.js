@@ -2,6 +2,7 @@ import {distance, editorialFreshness} from './recommendations.js';
 import {venueGroup} from './venues.js';
 import {placeKind} from './exploration.js';
 import {isSuppressedVenue} from './venueCorrections.js';
+import {MATCH_RADIUS_M, distanceM, normalizeName} from './cityBoard.js';
 
 // Tonight's Three. Pure: the caller supplies "now" and a seed, so the same
 // inputs always give the same picks. Nothing here reads the clock, storage or
@@ -103,10 +104,23 @@ export function decideTonight({saves=[], places=[], events=[], outings=[], conte
  if(energy)notes.push(energy.note);
  if(company)notes.push(company.note);
 
+ const placeById=new Map(places.filter(p=>p&&p.id).map(p=>[p.id,p]));
+ // Journal records keep the id of the guide they were saved from; a city pack
+ // lists the same venue under its own id. Same rule as the city board: an id
+ // in the list wins, else the same normalized name within 120 m, nearest first.
+ const byName=new Map();
+ for(const p of placeById.values()){const k=hasCoords(p)&&normalizeName(p.name);if(!k)continue;if(!byName.has(k))byName.set(k,[]);byName.get(k).push(p);}
+ const idOf=place=>{
+  if(!place?.id||placeById.has(place.id)||!hasCoords(place))return place?.id||'';
+  let best=null, bestM=Infinity;
+  for(const p of byName.get(normalizeName(place.name))||[]){const m=distanceM(place,p);if(m<=MATCH_RADIUS_M&&(m<bestM||(m===bestM&&p.id<best.id))){best=p;bestM=m;}}
+  return best?best.id:place.id;
+ };
+
  // History per place: latest rated visit decides likes and exclusions.
  const visits=new Map(), planned=new Set();
  for(const o of outings){
-  const id=o?.place?.id;if(!id)continue;
+  const id=idOf(o?.place);if(!id)continue;
   if(o.status==='planned')planned.add(id);
   if(o.status!=='visited'||!o.visitDate)continue;
   const row=visits.get(id)||{last:'', rated:null, name:o.place.name, category:o.place.category};
@@ -129,12 +143,13 @@ export function decideTonight({saves=[], places=[], events=[], outings=[], conte
  // Shared facts for anything tied to a known place. Returns null if excluded.
  function placeFacts(place, own){
   if(!place)return {score:0, reasons:[], group:'unconfirmed'};
-  if(lowRated(place.id))return null;
+  const id=idOf(place);
+  if(lowRated(id))return null;
   const km=distanceTo(place);
   if(maxKm&&km!==null&&km>maxKm){tooFar++;return null;}
   const group=groupOf(place), reasons=[];let score=0;
   if(km!==null){score-=Math.min(km,15)*perKm;reasons.push(kmText(km));}
-  const row=visits.get(place.id), r=rating(place.id);
+  const row=visits.get(id), r=rating(id);
   if(row){
    const ago=today-dayNumber(row.last);
    // A visit dated after "now" (clock or zone skew) is not described as past.
@@ -142,9 +157,9 @@ export function decideTonight({saves=[], places=[], events=[], outings=[], conte
    if(r>=4){score+=12;reasons.push(`You rated it ${r} last time`);}
   }else{
    const like=loved.get(group);
-   if(like&&like.id!==place.id){score+=own?6:15;reasons.push(`Like ${like.name}, which you rated ${like.rating}`);}
+   if(like&&like.id!==id){score+=own?6:15;reasons.push(`Like ${like.name}, which you rated ${like.rating}`);}
   }
-  if(planned.has(place.id)&&!own){score+=40;reasons.unshift('Already in your plans');}
+  if(planned.has(id)&&!own){score+=40;reasons.unshift('Already in your plans');}
   if(place.recommendation?.text){const f=editorialFreshness(place.recommendation, now);if(f==='dated'){score+=8;reasons.push(`Guide entry updated ${place.recommendation.listingUpdated}`);}}
   score+=energy?.groups[group]||0;score+=company?.groups[group]||0;
   return {score, reasons, group};
@@ -158,8 +173,8 @@ export function decideTonight({saves=[], places=[], events=[], outings=[], conte
   if(seenSaves.has(save.id))continue;seenSaves.add(save.id);
   const timing=saveClock(save.source, today, wk);
   if(timing.passed){passed++;continue;}
-  if(place&&(savedPlaceIds.has(place.id)||isSuppressedVenue(place, now)))continue;
-  if(place)savedPlaceIds.add(place.id);
+  if(place&&(savedPlaceIds.has(idOf(place))||isSuppressedVenue(place, now)))continue;
+  if(place)savedPlaceIds.add(idOf(place));
   const facts=placeFacts(place, true);if(!facts)continue;
   const reasons=[];let score=100+timing.boost+facts.score;
   if(timing.reason)reasons.push(timing.reason);
@@ -171,7 +186,6 @@ export function decideTonight({saves=[], places=[], events=[], outings=[], conte
  }
 
  // 2. Events happening tonight (starting later tonight, or under way now).
- const placeById=new Map(places.filter(p=>p&&p.id).map(p=>[p.id,p]));
  const seenEvents=new Set();
  for(const event of events){
   if(!event?.id||seenEvents.has(event.id))continue;seenEvents.add(event.id);

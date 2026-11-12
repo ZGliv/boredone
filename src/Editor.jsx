@@ -31,7 +31,17 @@ export function Modal({ title, onClose, children, wide = false }) {
     </dialog>
   );
 }
-export default function Editor({ outing, onClose, onSave, isNew = false, people = [], recovery, draftsEnabled = true, onDraftsChanged = () => {}, draftStore={writeDraft,deleteDraft}, validate=validateOuting, preserveDate=false, syncEnabled=false }) {
+// The plan/memory form needs a venue. A save with no place yet has nothing to
+// edit here, so close instead of rendering (the Pile UI handles saves).
+export function canEdit(props) {
+  return !!(props.recovery?.outing || props.outing)?.place;
+}
+export default function Editor(props) {
+  const editable = canEdit(props);
+  useEffect(() => { if (!editable) props.onClose?.(); }, [editable]);
+  return editable ? <OutingEditor {...props} /> : null;
+}
+function OutingEditor({ outing, onClose, onSave, isNew = false, people = [], recovery, draftsEnabled = true, onDraftsChanged = () => {}, draftStore={writeDraft,deleteDraft}, validate=validateOuting, preserveDate=false, syncEnabled=false }) {
   const [draft, setDraft] = useState(() => structuredClone(recovery?.outing || outing)),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),

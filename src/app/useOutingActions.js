@@ -1,5 +1,6 @@
 import { localDate, makeOuting } from "../model";
 import { manualOuting } from "./outings";
+import { outingLabel } from "../saves";
 
 // Creating, saving and deleting plans and memories. Recreated each render so
 // every handler sees the current page, library and demo state.
@@ -16,7 +17,7 @@ export default function useOutingActions({ journal, account, page, navigate, set
     if (
       isNew && outing.status === "planned" &&
       current.some(
-        (x) => x.status === "planned" && x.place.id === outing.place.id,
+        (x) => x.status === "planned" && x.place?.id === outing.place?.id,
       )
     )
       throw new Error(
@@ -42,7 +43,7 @@ export default function useOutingActions({ journal, account, page, navigate, set
   }
   function addPlan(place) {
     const existing = library.outings.find(
-      (x) => x.status === "planned" && x.place.id === place.id,
+      (x) => x.status === "planned" && x.place?.id === place.id,
     );
     setSelected(null);
     setEditor({ outing: existing || makeOuting(place), isNew: !existing });
@@ -65,7 +66,7 @@ export default function useOutingActions({ journal, account, page, navigate, set
   async function remove(outing) {
     if (
       !window.confirm(
-        `Delete “${outing.place.name}” and its saved photos ${account?.owner?'from your account and synced devices':'from this browser'}? Export a backup first if you want to keep a copy.`,
+        `Delete “${outingLabel(outing)}” and its saved photos ${account?.owner?'from your account and synced devices':'from this browser'}? Export a backup first if you want to keep a copy.`,
       )
     )
       return;

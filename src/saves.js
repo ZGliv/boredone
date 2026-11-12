@@ -1,6 +1,7 @@
 // The Pile: things saved from anywhere. A save is an ordinary outing with
 // status "saved", so storage, sync, backup and account removal already cover it.
 import {SAVE_APPS, localDate, safeUrl, validDate, validateOuting, validatePlace} from './model.js';
+import {parseSaveUrl, TRACKING as SHARE_TRACKING} from './saveSource.js';
 
 const APP_HOSTS = [
   ['instagram', /(^|\.)instagram\.com$|(^|\.)instagr\.am$/],
@@ -17,10 +18,23 @@ export function appFor(url) {
   if (h === 'goo.gl' && path.startsWith('/maps')) return 'google-maps';
   return APP_HOSTS.find(([, pattern]) => pattern.test(h))?.[0] || 'web';
 }
+// What to call an outing in a list or prompt. A save may have no place yet, so
+// fall back to what was saved: its note or caption, then the link's site.
+export function outingLabel(outing) {
+  if (outing?.place?.name) return outing.place.name;
+  const note = typeof outing?.source?.text === 'string' ? outing.source.text.trim() : '';
+  if (note) return note.length > 80 ? `${note.slice(0, 79)}…` : note;
+  const link = safeUrl(outing?.source?.url || '');
+  return link ? host(link) : 'Saved item';
+}
 const stampOf = now => (now instanceof Date ? now : new Date(now ?? Date.now())).toISOString();
 
 export function makeSave({url = '', app, text = '', place = null, eventDate = '', expiresAt = '', now = new Date()} = {}) {
-  const stamp = stampOf(now), link = typeof url === 'string' ? url.trim() : url;
+  const stamp = stampOf(now);
+  let link = typeof url === 'string' ? url.trim() : url;
+  // "instagram.com/reel/x" pasted without a scheme: the resolver reads it as a
+  // link, so the record must store it as one instead of rejecting it.
+  if (typeof link === 'string' && link && !/^[a-z][a-z0-9+.-]*:/i.test(link) && parseSaveUrl(link).app !== 'note') link = `https://${link}`;
   if (!link && !(typeof text === 'string' && text.trim()) && !place) throw Error('Nothing to save. Paste a link or type a note.');
   return validateOuting({
     id: crypto.randomUUID(),
@@ -71,7 +85,7 @@ function canonicalUrl(value) {
   if (!safe) return '';
   const url = new URL(safe), h = host(safe);
   let path = url.pathname.replace(/\/+$/, '') || '/';
-  const params = [...url.searchParams].filter(([k]) => !TRACKING.test(k));
+  const params = [...url.searchParams].filter(([k]) => !TRACKING.test(k) && !SHARE_TRACKING.test(k));
   if (h === 'youtu.be') return `youtube.com/watch?v=${path.slice(1)}`;
   if (h === 'youtube.com' && path.startsWith('/shorts/')) return `youtube.com/watch?v=${path.split('/')[2]}`;
   if (h === 'instagram.com') path = path.replace(/^\/reels\//, '/reel/');
