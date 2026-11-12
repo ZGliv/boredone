@@ -7,9 +7,9 @@ import { distance } from "../recommendations.js";
 import { makeOuting, validateOuting } from "../model.js";
 import { saveToPlan } from "../saves.js";
 import { normalizeKind } from "../venues.js";
+import { saveTitle, sourceName } from "../pile/pile.js";
 
 const RESET_HOURS = 5;
-export const APP_NAMES = { instagram: "Instagram", tiktok: "TikTok", youtube: "YouTube", "google-maps": "Google Maps", web: "a link", note: "a note" };
 
 // The dials decideTonight reads (context.companions, context.energy). The
 // labels are ours; the values are the engine's.
@@ -88,12 +88,18 @@ const spotOf = (pick) => {
 
 // One pick as the screen shows it. Reasons are decide's own words; the
 // distance moves to its own column and the kind line is not repeated.
-export function pickView(pick, { location = null } = {}) {
-  const place = pick.place || pick.save?.place || null;
+// placeOf(place) returns the city's record for a place a save or plan kept
+// from an older guide, so the line under the name matches the map sheet.
+export function pickView(pick, { location = null, placeOf = null } = {}) {
+  const own = pick.place || pick.save?.place || null;
+  const place = (own && placeOf?.(own)) || own;
   const event = pick.event || null;
   const save = pick.save || null;
-  const title = event?.title || place?.name || (save ? saveLabel(save) : "");
-  const line = event ? (place ? place.name : event.venueName || "") : place ? placeLine(place) : `From ${APP_NAMES[save?.source?.app] || "your pile"}`;
+  // An unplaced save is named by its own words, quoted like on the Pile.
+  const quoted = !!save && !place && !!save.source?.text?.trim();
+  const title = event?.title || place?.name || (save ? saveTitle(save) : "");
+  // A bare link is already titled by where it came from; the line would repeat it.
+  const line = event ? (place ? place.name : event.venueName || "") : place ? placeLine(place) : save && quoted ? sourceName(save) : "";
   const spot = spotOf(pick);
   const km = location && spot ? distance(location, spot) : null;
   const kindLine = place ? engineKindText(place).toLowerCase() : "";
@@ -106,38 +112,57 @@ export function pickView(pick, { location = null } = {}) {
     // The line under the name already says where an unplaced save came from.
     .map((r) => (/ · place still needs confirming$/.test(r) ? "Place not confirmed" : r))
     .map((text) => ({ text, tone: /^Saved|^Already in your plans|^At a place you saved/.test(text) ? "blue" : "" }));
-  return { id: pick.id, kind: pick.kind, title, line, km, distance: km == null ? "" : distanceText(km), reasons, place, event, save, spot, unplaced: !!save && !place };
-}
-function saveLabel(save) {
-  const note = typeof save.source?.text === "string" ? save.source.text.trim() : "";
-  if (note) return note.length > 60 ? `${note.slice(0, 59)}…` : note;
-  try { return new URL(save.source?.url).hostname.replace(/^www\./, ""); } catch { return "Saved"; }
+  return { id: pick.id, kind: pick.kind, title, quoted, line, km, distance: km == null ? "" : distanceText(km), reasons, place, event, save, spot, unplaced: !!save && !place };
 }
 
-// The plan already standing for this pick, if any.
-export function planFor(pick, outings) {
+// The plan already standing for this pick's venue, if any. A plan saved
+// from an older guide keeps that guide's place id, so plans are matched to
+// the pick's place the way the map's states are (placeForOuting: same id,
+// else sameVenue). `places`/`placeById` are the city's places.
+export function planFor(pick, outings, { places = [], placeById = new Map() } = {}) {
   const plans = outings.filter((o) => o?.status === "planned");
-  if (pick.save) return plans.find((o) => o.id === pick.save.id) || null;
-  const id = pick.place?.id || (pick.event ? `event-${pick.event.id}` : "");
-  return plans.find((o) => o.place?.id === id) || null;
+  if (pick.save) {
+    const own = plans.find((o) => o.id === pick.save.id);
+    if (own) return own;
+  }
+  const place = pick.place || pick.save?.place || null;
+  if (place?.id) {
+    return plans.find((o) => o.place?.id === place.id)
+      || plans.find((o) => o.place && placeForOuting(o, places, placeById)?.id === place.id)
+      || null;
+  }
+  if (pick.event) return plans.find((o) => o.place?.id === `event-${pick.event.id}`) || null;
+  return null;
 }
 
-// "Go": the outing to write so the pick sits in tonight's plan. A save turns
-// into its plan (keeping its source); a place or event becomes a new plan, or
-// re-dates the plan you already had. Null when there is no place to go to yet.
-export function planFromPick(pick, { outings = [], now = new Date() } = {}) {
-  const today = sessionDate(now), stamp = now.toISOString();
-  if (pick.save) return pick.save.place ? saveToPlan(pick.save, today, now) : null;
-  const standing = planFor(pick, outings);
-  if (standing) return standing.planDate === today ? standing : validateOuting({ ...standing, planDate: today, updatedAt: stamp });
+// The day a pick is for: a save dated later this week is for that day, not
+// tonight. Everything else is tonight's session day.
+export function pickDay(pick, now = new Date()) {
+  const today = sessionDate(now), day = pick.save?.source?.eventDate || "";
+  return /^\d{4}-\d{2}-\d{2}$/.test(day) && day > today ? day : today;
+}
+
+// "Go": the outing to write so the pick sits in the plan for its day
+// (pickDay). A plan already standing for the venue is re-dated, never
+// duplicated; a save turns into its plan (keeping its source); a place or
+// event becomes a new plan. Tonight's picks are a snapshot, so a save is
+// re-read from `outings`: null when it is gone, already done, or has no place
+// to go to yet.
+export function planFromPick(pick, { outings = [], now = new Date(), places = [], placeById = new Map() } = {}) {
+  const day = pickDay(pick, now), stamp = now.toISOString();
+  const live = pick.save ? outings.find((o) => o?.id === pick.save.id) : null;
+  if (pick.save && (!live || !["saved", "planned"].includes(live.status))) return null;
+  const standing = planFor(live ? { ...pick, save: live } : pick, outings, { places, placeById });
+  if (standing) return standing.planDate === day ? standing : validateOuting({ ...standing, planDate: day, updatedAt: stamp });
+  if (live) return live.place ? saveToPlan(live, day, now) : null;
   if (pick.event) {
     const e = pick.event;
     const located = Number.isFinite(e.lat) && Number.isFinite(e.lng);
     const place = pick.place || { id: `event-${e.id}`, name: (e.venueName || e.title).slice(0, 180), ...(located ? { lat: e.lat, lng: e.lng } : {}), address: "", category: "", website: e.url || "" };
-    return validateOuting({ ...makeOuting(place), planDate: today, notes: e.title.slice(0, 6000), createdAt: stamp, updatedAt: stamp });
+    return validateOuting({ ...makeOuting(place), planDate: day, notes: e.title.slice(0, 6000), createdAt: stamp, updatedAt: stamp });
   }
   if (!pick.place) return null;
-  return validateOuting({ ...makeOuting(pick.place), planDate: today, createdAt: stamp, updatedAt: stamp });
+  return validateOuting({ ...makeOuting(pick.place), planDate: day, createdAt: stamp, updatedAt: stamp });
 }
 
 // The finishable set you are closest to finishing. Only sets you have

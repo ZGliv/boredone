@@ -150,9 +150,8 @@ function OutingEditor({ outing, onClose, onSave, isNew = false, people = [], rec
         <fieldset disabled={busy || photoBusy}>
           {typed ? (
             <div className="outing-typed">
-              <h2 className="t-caps">{heading}</h2>
-              <label className="field field-name"><span>Name</span>
-                <input required maxLength={180} value={draft.place.name} onChange={(e) => update({ place: { ...draft.place, name: e.target.value } })} /></label>
+              <label className="field field-name"><span>{heading}</span>
+                <input required maxLength={180} placeholder="Name" value={draft.place.name} onChange={(e) => update({ place: { ...draft.place, name: e.target.value } })} /></label>
               <div className="field-pair">
                 <label className="field"><span>Where</span>
                   <input maxLength={600} value={draft.place.address} onChange={(e) => update({ place: { ...draft.place, address: e.target.value } })} /></label>
@@ -162,7 +161,6 @@ function OutingEditor({ outing, onClose, onSave, isNew = false, people = [], rec
             </div>
           ) : (
             <header className="outing-hero">
-              {memory && <span className="outing-stamp" aria-hidden="true"><Icon name="check" size={30} /></span>}
               <div>
                 <p className="t-caps">{heading}</p>
                 <h2 className="outing-name">{draft.place.name}</h2>
@@ -190,7 +188,7 @@ function OutingEditor({ outing, onClose, onSave, isNew = false, people = [], rec
 
           {memory && (
             <section className="outing-verdict">
-              <h3>How was it?</h3>
+              <span className="field-label" aria-hidden="true">How was it</span>
               <SegmentedControl label="How was it?" value={draft.rating} onChange={(rating) => update({ rating: rating === draft.rating ? 0 : rating })}
                 options={VERDICTS} className="verdicts" />
             </section>

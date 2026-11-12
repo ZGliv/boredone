@@ -43,7 +43,7 @@ export async function readLibrary() {
       req = tx.objectStore("library").get("current");
     let loaded;
     tx.oncomplete = () => resolve(loaded);
-    tx.onabort = () => reject(new Error("Could not read your saved outings. Your journal has not been changed. Try reloading it."));
+    tx.onabort = () => reject(new Error("Journal didn't load"));
     req.onsuccess = () => {
       const data = req.result;
       if (!data) { loaded = blankLibrary(); return; }
@@ -61,12 +61,12 @@ export async function readLibrary() {
       } catch {
         reject(
           new Error(
-            "The saved journal could not be read. It has not been changed. Restore a valid backup in a fresh browser or contact the project owner.",
+            "Journal didn't load. Restore a backup",
           ),
         );
       }
     };
-    req.onerror = () => reject(new Error("Could not read your saved outings."));
+    req.onerror = () => reject(new Error("Journal didn't load"));
   });
 }
 export async function writeLibrary(outings, revision, draftId, draftStamp) {
@@ -77,7 +77,7 @@ export async function writeLibrary(outings, revision, draftId, draftStamp) {
     MAX_BACKUP_BYTES
   )
     throw new Error(
-      "This change would make your journal larger than 50 MB. Export a backup, then remove some photos before adding more. Nothing was changed.",
+      "Journal full at 50 MB. Not saved",
     );
   const db = await openDb();
   return new Promise((resolve, reject) => {
@@ -121,10 +121,10 @@ export async function writeLibrary(outings, revision, draftId, draftStamp) {
       reject(
         new Error(
           conflict
-            ? "Your journal changed in another tab. Reload the latest version before saving."
+            ? "Changed in another tab"
             : (writeError || tx.error)?.name === "QuotaExceededError"
-              ? "Your browser is out of space. This change was not saved. Remove a photo or export your journal before making room."
-              : "Your browser could not save this change. Your previous journal is intact.",
+              ? "Out of space. Not saved"
+              : "Not saved",
         ),
       );
     tx.onerror = () => {};
@@ -133,24 +133,24 @@ export async function writeLibrary(outings, revision, draftId, draftStamp) {
 export async function resizePhoto(file) {
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type))
     throw new Error(
-      "Choose JPEG, PNG or WebP photos. HEIC and videos are not supported yet.",
+      "JPEG, PNG or WebP only",
     );
   if (file.size > 20 * 1024 * 1024)
-    throw new Error("Choose a photo smaller than 20 MB.");
+    throw new Error("Photo over 20 MB");
   const url = URL.createObjectURL(file);
   try {
     const image = await new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => resolve(img);
       img.onerror = () =>
-        reject(new Error("This image could not be opened. Try another photo."));
+        reject(new Error("Photo didn't open"));
       img.src = url;
     });
     if (
       !image.naturalWidth ||
       image.naturalWidth * image.naturalHeight > 80000000
     )
-      throw new Error("This photo is too large to process safely.");
+      throw new Error("Photo too large");
     const ratio = Math.min(
         1,
         1600 / Math.max(image.naturalWidth, image.naturalHeight),
@@ -159,12 +159,12 @@ export async function resizePhoto(file) {
     canvas.width = Math.max(1, Math.round(image.naturalWidth * ratio));
     canvas.height = Math.max(1, Math.round(image.naturalHeight * ratio));
     const context = canvas.getContext("2d");
-    if (!context) throw new Error("Your browser cannot prepare photos.");
+    if (!context) throw new Error("Photos not supported here");
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
     let data = canvas.toDataURL("image/jpeg", 0.78);
     if (data.length > 1400000) data = canvas.toDataURL("image/jpeg", 0.55);
     if (data.length > 1400000)
-      throw new Error("This photo is still too large. Crop it and try again.");
+      throw new Error("Photo too large");
     return data;
   } finally {
     URL.revokeObjectURL(url);
@@ -180,7 +180,7 @@ export async function readDrafts() {
     let records;
     req.onsuccess=()=>{try{records=req.result.map(validateDraft).sort((a,b)=>b.savedAt.localeCompare(a.savedAt));}catch(e){reject(e);}};
     tx.oncomplete=()=>resolve(records);
-    tx.onabort=()=>reject(Error('Couldn’t read unfinished outings. Your saved journal is unchanged.'));
+    tx.onabort=()=>reject(Error('Drafts didn’t load'));
   });
 }
 export async function writeDraft(record) {
@@ -191,13 +191,13 @@ export async function writeDraft(record) {
     const req=store.getAll(IDBKeyRange.bound(DRAFT_PREFIX,DRAFT_PREFIX+'\uffff'));
     req.onsuccess=()=>{
       const existing=req.result.find(r=>r.id===safe.id);
-      if(existing && existing.savedAt!==record.previousSavedAt){error=Error('This draft changed in another tab. Keep this tab open to save your version as a visit.');tx.abort();return;}
+      if(existing && existing.savedAt!==record.previousSavedAt){error=Error('Changed in another tab');tx.abort();return;}
       const others=req.result.filter(r=>r.id!==safe.id);
-      if(others.length>=10 || new Blob([JSON.stringify([...others,safe])]).size>MAX_BACKUP_BYTES){error=Error('Unfinished outings are full. Save or discard an earlier draft to make room.');tx.abort();return;}
+      if(others.length>=10 || new Blob([JSON.stringify([...others,safe])]).size>MAX_BACKUP_BYTES){error=Error('10 drafts max');tx.abort();return;}
       store.put(safe,DRAFT_PREFIX+safe.id);
     };
     tx.oncomplete=()=>resolve(safe);
-    tx.onabort=()=>reject(error||Error('Draft couldn’t be saved on this device. Keep this tab open and try saving the visit.'));
+    tx.onabort=()=>reject(error||Error('Draft not saved'));
     tx.onerror=()=>{};
   });
 }
@@ -206,6 +206,6 @@ export async function deleteDraft(id, expectedStamp) {
   return new Promise((resolve,reject)=>{
     const tx=db.transaction('library','readwrite'),store=tx.objectStore('library'),req=store.get(DRAFT_PREFIX+id);
     req.onsuccess=()=>{if(req.result && req.result.savedAt!==expectedStamp){tx.abort();return;}store.delete(DRAFT_PREFIX+id);};
-    tx.oncomplete=()=>resolve();tx.onabort=()=>reject(Error('Couldn’t discard the draft. Try again.'));
+    tx.oncomplete=()=>resolve();tx.onabort=()=>reject(Error('Draft not discarded'));
   });
 }

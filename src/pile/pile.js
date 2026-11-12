@@ -61,11 +61,11 @@ export function sourceName(save) {
   return kind ? `${APP_NAME[link.app]} ${kind}` : APP_NAME[link.app];
 }
 
-// "just now", "today", "yesterday", "3 days ago", "2 weeks ago".
+// "today", "yesterday", "3 days ago", "2 weeks ago": the same words
+// decide.js uses for "Saved 3 weeks ago" on Tonight.
 export function ageWords(fromIso, now = new Date()) {
   const from = new Date(fromIso);
   if (!Number.isFinite(from.getTime())) return "";
-  if (now - from < 120000 && now - from >= -60000) return "just now";
   const days = Math.max(0, Math.round((Date.parse(localDate(now)) - Date.parse(localDate(from))) / DAY));
   if (days === 0) return "today";
   if (days === 1) return "yesterday";
@@ -88,13 +88,26 @@ export function shortAge(fromIso, now = new Date()) {
   return `${Math.floor(days / 365)} yr`;
 }
 
-// "From an Instagram Reel, just now".
-export function fromLine(save, now = new Date()) {
-  const name = sourceName(save);
+// "Saved 3 weeks ago", "Saved today": one wording on every sheet and on Tonight.
+export function savedText(save, now = new Date()) {
   const age = ageWords(savedAt(save), now);
-  if (!save?.source?.url) return `Your note, ${age}`;
-  const article = name.startsWith("Instagram") ? "an " : name === "Google Maps" || /^[a-z0-9.-]+$/.test(name) ? "" : "a ";
-  return `From ${article}${name}, ${age}`;
+  return age ? `Saved ${age}` : "";
+}
+
+// "Instagram Reel · Saved today".
+export function fromLine(save, now = new Date()) {
+  return [sourceName(save), savedText(save, now)].filter(Boolean).join(" · ");
+}
+
+// What to call a save that has no place yet: its words with @handles and
+// #tags reduced to plain words, else where it came from.
+export function saveTitle(save) {
+  const text = String(save?.source?.text || "")
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/(^|\s)[@#](?=\w)/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text || sourceName(save);
 }
 
 const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -138,20 +151,25 @@ export function kmFrom(near, place) {
   return hasPoint(near) && hasPoint(place) ? distanceKm(near, place) : null;
 }
 
-// saveMatch's reason, for people: "Same name, same kind of place". Its
-// distance part is dropped: it is measured from wherever the search was
-// centred, and the screen shows the distance from the user on its own line.
-export function reasonText(reason = "") {
-  const parts = String(reason).split(" · ").filter((part) => part && !/ away$/.test(part));
-  const text = parts.join(", ");
-  return text ? text[0].toUpperCase() + text.slice(1) : "";
+// The one fact from saveMatch's reason that tells this candidate apart:
+// "One of 3 locations", "Different kind of place", or nothing. "Same name"
+// is what the card already shows; the distance is measured from the search
+// centre, not the user; a chain count equal to the card's own counter
+// (`total`) says nothing new.
+export function reasonText(reason = "", total = 0) {
+  const parts = String(reason).split(" · ");
+  const chain = parts.map((p) => /^one of (\d+) locations$/.exec(p)).find(Boolean);
+  if (chain && Number(chain[1]) !== total) return `One of ${chain[1]} locations`;
+  if (parts.includes("different kind of place")) return "Different kind of place";
+  return "";
 }
 
 // Resolver candidates -> one queue of places to ask about, best first, each
 // place once. Each entry keeps the candidate it came from (its words and dates).
 export function candidateQueue(candidates = [], places = [], near = null) {
   const seen = new Set(), queue = [];
-  for (const { candidate, matches } of matchCandidates(candidates, places, near)) {
+  const areas = near?.city ? [String(near.city)] : [];
+  for (const { candidate, matches } of matchCandidates(candidates, places, near, { areas })) {
     for (const match of matches) {
       if (seen.has(match.place.id)) continue;
       seen.add(match.place.id);

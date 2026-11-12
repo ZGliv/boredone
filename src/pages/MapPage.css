@@ -1,6 +1,16 @@
 .map-page { position: absolute; inset: 0; overflow: hidden; }
 .map-head { position: absolute; z-index: 2; top: 0; left: 0; right: 0; padding: calc(var(--safe-top) + var(--s2)) var(--gutter) var(--s3); pointer-events: none; }
-.map-head > * { pointer-events: auto; width: max-content; max-width: 100%; }
+/* A band of the page colour behind the count, its lower edge feathered into
+   the map, so no dot ever runs through the numerals. */
+.map-head::before {
+  content: ""; position: absolute; z-index: -1; inset: 0 0 -28px; pointer-events: none;
+  background: var(--body);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent);
+}
+.map-count, .map-set { text-shadow: 0 0 6px var(--body), 0 0 2px var(--body); }
+.map-head > *:not(.map-head-row) { pointer-events: auto; width: max-content; max-width: 100%; }
+.map-head-row > * { pointer-events: auto; }
 .map-head-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); width: auto; }
 .map-locate { display: grid; place-items: center; width: var(--touch); height: var(--touch); margin-right: calc(var(--s2) * -1); border: 0; border-radius: var(--r-md); background: none; color: var(--muted); cursor: pointer; }
 .map-locate:hover:not(:disabled) { color: var(--ink); }

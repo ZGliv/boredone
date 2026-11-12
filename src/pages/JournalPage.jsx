@@ -10,7 +10,7 @@ import React, { useState } from "react";
 import { useApp } from "../app/AppContext";
 import DraftRecovery from "../app/DraftRecovery";
 import { placeLine } from "../city/placeText";
-import { localDate } from "../model";
+import { tonightDate } from "../pile/pile";
 import MemoryDetail from "../done/MemoryDetail";
 import { byMonth, factDate, monthName, shortDay, verdictLabel } from "../done/boardView";
 import { Button, Icon, kindIcon } from "../ui";
@@ -22,7 +22,8 @@ export default function JournalPage() {
   const [open, setOpen] = useState(null);
   const memory = open && done.find((o) => o.id === open);
   if (memory) return <MemoryDetail memory={memory} canEdit={canEdit} actions={actions} onBack={() => setOpen(null)} />;
-  const today = localDate();
+  // The session day: a plan made for tonight stays "Tonight" until 5 am.
+  const today = tonightDate();
   return (
     <div className="journal">
       <header className="page-head">

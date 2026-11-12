@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { closestSet, eventsQuery, isoWithOffset, linkEvents, pickView, planFor, planFromPick, saveForPlace, sessionDate, tonightContext, tonightEnd } from "../src/tonight/tonightModel.js";
+import { closestSet, eventsQuery, isoWithOffset, linkEvents, pickDay, pickView, planFor, planFromPick, saveForPlace, sessionDate, tonightContext, tonightEnd } from "../src/tonight/tonightModel.js";
 import { decideTonight } from "../src/decide.js";
 import { makeSave } from "../src/saves.js";
 
@@ -73,7 +73,7 @@ test("pickView marks save age blue and names an unplaced save by its note", () =
   const { picks } = decideTonight({ saves: [save], context: tonightContext({ now }) });
   const view = pickView(picks[0]);
   assert.equal(view.title, "that ramen place Sam mentioned");
-  assert.equal(view.line, "From a note");
+  assert.equal(view.line, "Your note");
   assert.equal(view.unplaced, true);
   assert.equal(view.reasons[0].tone, "blue");
   assert.match(view.reasons[0].text, /^Saved/);
@@ -143,4 +143,55 @@ test("saveForPlace finds the pile entry behind a place, by id or same venue", ()
   const byId = new Map([[bar.id, bar], [cafe.id, cafe]]);
   assert.equal(saveForPlace(bar, [save], [bar, cafe], byId)?.id, save.id);
   assert.equal(saveForPlace(cafe, [save], [bar, cafe], byId), null);
+});
+
+test("a plan saved from an older guide is found by venue, so Go and Done never duplicate it", () => {
+  const now = new Date(2026, 10, 13, 19, 0);
+  const places = [bar, cafe], placeById = new Map(places.map((p) => [p.id, p]));
+  const legacy = { id: "legacy-plan", status: "planned", planDate: "2026-11-13", place: { ...bar, id: "osm-node-111" }, createdAt: "2026-11-01T00:00:00Z", updatedAt: "2026-11-01T00:00:00Z", notes: "", with: "", photos: [], rating: 0, visitDate: "" };
+  const pick = { id: "place:p-bar", kind: "place", place: bar };
+  assert.equal(planFor(pick, [legacy], { places, placeById })?.id, "legacy-plan");
+  assert.equal(planFor({ place: bar }, [legacy], { places, placeById })?.id, "legacy-plan", "the map sheet finds it too");
+  assert.equal(planFromPick(pick, { outings: [legacy], now, places, placeById }), legacy, "already tonight: nothing new to write");
+  const moved = planFromPick(pick, { outings: [{ ...legacy, planDate: "2026-11-20" }], now, places, placeById });
+  assert.equal(moved.id, "legacy-plan");
+  assert.equal(moved.planDate, "2026-11-13");
+  // A save for a venue that already has a plan re-dates that plan.
+  const save = makeSave({ text: "Gooski's", place: bar, now: new Date(2026, 10, 1) });
+  const fromSave = planFromPick({ id: `save:${save.id}`, kind: "save", save, place: bar }, { outings: [save, { ...legacy, planDate: "2026-10-01" }], now, places, placeById });
+  assert.equal(fromSave.id, "legacy-plan");
+});
+
+test("Go re-reads the save: a save done or deleted since the picks were drawn is not overwritten", () => {
+  const now = new Date(2026, 10, 13, 19, 0);
+  const save = makeSave({ text: "Gooski's", place: bar, now: new Date(2026, 10, 1) });
+  const pick = { id: `save:${save.id}`, kind: "save", save, place: bar };
+  assert.equal(planFromPick(pick, { outings: [], now }), null, "deleted elsewhere");
+  assert.equal(planFromPick(pick, { outings: [{ ...save, status: "visited", visitDate: "2026-11-12", rating: 5 }], now }), null, "done elsewhere");
+});
+
+test("a save dated later this week is planned for its own day, not tonight", () => {
+  const now = new Date(2026, 10, 12, 19, 0);
+  const save = makeSave({ text: "night market", place: cafe, eventDate: "2026-11-14", now: new Date(2026, 10, 10) });
+  const pick = { id: `save:${save.id}`, kind: "save", save, place: cafe };
+  assert.equal(pickDay(pick, now), "2026-11-14");
+  assert.equal(planFromPick(pick, { outings: [save], now }).planDate, "2026-11-14");
+  assert.equal(pickDay({ id: "place:p-cafe", kind: "place", place: cafe }, now), "2026-11-12");
+  assert.equal(pickDay(pick, new Date(2026, 10, 15, 1, 0)), "2026-11-14", "after midnight it is still that night");
+});
+
+test("pickView names an unplaced caption like the Pile and a placed save by the city's record", () => {
+  const now = new Date(2026, 10, 13, 18, 0);
+  const reel = makeSave({ url: "https://www.instagram.com/reel/abc", now: new Date(2026, 10, 1) });
+  const caption = makeSave({ text: "pierogi at @aptekapgh #lawrenceville", now: new Date(2026, 10, 1) });
+  const views = decideTonight({ saves: [reel, caption], context: tonightContext({ now }) }).picks.map((p) => pickView(p));
+  const r = views.find((v) => v.save.id === reel.id), c = views.find((v) => v.save.id === caption.id);
+  assert.equal(r.title, "Instagram Reel");
+  assert.equal(r.quoted, false);
+  assert.equal(r.line, "", "not \"Instagram Reel\" twice");
+  assert.equal(c.title, "pierogi at aptekapgh lawrenceville");
+  assert.equal(c.quoted, true);
+  const legacy = makeSave({ text: "x", place: { ...bar, id: "guide-1", neighborhood: "" }, now: new Date(2026, 10, 1) });
+  const pick = decideTonight({ saves: [legacy], context: tonightContext({ now }) }).picks[0];
+  assert.equal(pickView(pick, { placeOf: () => bar }).line, "Bar in Polish Hill");
 });

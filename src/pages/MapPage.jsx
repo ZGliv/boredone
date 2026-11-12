@@ -9,13 +9,14 @@ import { useApp } from "../app/AppContext";
 import { directions, targetHash } from "../app/routes";
 import useHashTarget from "../app/useHashTarget";
 import CitySwitcher from "../city/CitySwitcher";
-import { ageText, count, distanceText, placeLine } from "../city/placeText";
+import { count, distanceText, placeLine } from "../city/placeText";
 import WorldMap from "../map/WorldMap";
 import { distance } from "../recommendations.js";
 import { makeSave } from "../saves";
 import TonightPanel from "../tonight/TonightPanel";
-import { boardSets } from "../done/boardView";
-import { APP_NAMES, closestSet, planFor, planFromPick, saveForPlace } from "../tonight/tonightModel";
+import { boardSets, doneEffect, doneIdsFrom, pickFact, shortDay } from "../done/boardView";
+import { fromLine, tonightDate } from "../pile/pile";
+import { closestSet, planFor, planFromPick, saveForPlace } from "../tonight/tonightModel";
 import useHere from "../tonight/useHere";
 import useTonight from "../tonight/useTonight";
 import useTonightEvents from "../tonight/useTonightEvents";
@@ -40,8 +41,12 @@ export default function MapPage() {
   const center = city.center || { lat: 40.4406, lng: -79.9959 };
   const inCity = here && distance(here, center) <= (city.radiusKm || 10) + 15 ? here : null;
   const events = useTonightEvents({ center: inCity || center, radiusKm: inCity ? 8 : city.radiusKm || 10, places });
-  const tonight = useTonight({ cityId, places, saves, outings, ready, here: inCity, events });
+  const tonight = useTonight({ cityId, places, placeById, saves, outings, ready, here: inCity, events, center, radiusKm: city.radiusKm || 10 });
   const sets = useMemo(() => boardSets(board), [board]);
+  const doneIds = useMemo(() => doneIdsFrom(states), [states]);
+  const planOf = (pick) => planFor(pick, outings, { places, placeById });
+  // What doing a pick would add to the board, for a pick with no other fact.
+  const factOf = (pick) => (pick.place ? pickFact(doneEffect({ board, doneIds, place: pick.place, visitDate: tonightDate() })) : "");
   const near = useMemo(() => closestSet(sets, states), [sets, states]);
   const openPick = mode === "open" ? tonight.picks.find((p) => p.id === openId) : null;
   // A place sheet covers roughly the lower 300 px of the map.
@@ -56,10 +61,12 @@ export default function MapPage() {
     return () => clearTimeout(timer);
   }, [follow, inCity]);
 
+  // Tonight's picks are a snapshot; planFromPick re-reads the save, so one
+  // done or deleted elsewhere since is never overwritten.
   async function go(pick) {
     let plan;
-    try { plan = planFromPick(pick, { outings, now: new Date() }); } catch (e) { toast(e.message); return; }
-    if (!plan) return;
+    try { plan = planFromPick(pick, { outings, now: new Date(), places, placeById }); } catch (e) { toast(e.message); return; }
+    if (!plan) { toast("No longer on your pile"); return; }
     await actions.put(plan);
   }
 
@@ -95,7 +102,7 @@ export default function MapPage() {
 
       {!selected && tonight.picks.length > 0 && (
         <TonightPanel key={cityId} tonight={tonight} mode={mode} setMode={setMode} openId={openId} setOpenId={setOpenId}
-          outings={outings} canEdit={canEdit} onHeight={setPanelHeight}
+          planOf={planOf} factOf={factOf} canEdit={canEdit} onHeight={setPanelHeight}
           onGo={go} onDone={(plan) => actions.visit(plan)} onFind={(pick) => navigate(targetHash("pile", pick.save.id))} />
       )}
 
@@ -110,10 +117,11 @@ function PlaceSheet({ place, here, onClose }) {
   const { states, saves, outings, places, placeById, actions, canEdit, toast } = useApp();
   const state = states.get(place.id) || null;
   const save = state === "saved" ? saveForPlace(place, saves, places, placeById) : null;
-  const plan = state === "planned" ? planFor({ place }, outings) : null;
+  const plan = state === "planned" ? planFor({ place }, outings, { places, placeById }) : null;
   const km = here ? distance(here, place) : null;
   const facts = [placeLine(place), km != null && distanceText(km)].filter(Boolean).join(" · ");
-  const source = save && [save.source?.url ? `From ${APP_NAMES[save.source.app] || "a link"}` : save.source?.text ? "Your note" : "", `saved ${ageText(save.source?.savedAt || save.createdAt)}`].filter(Boolean).join(", ");
+  const source = save ? fromLine(save) : "";
+  const planned = plan ? (plan.planDate === tonightDate() ? "On tonight's plan" : plan.planDate ? `Planned ${shortDay(plan.planDate)}` : "Planned") : "Planned";
   async function addToPile() {
     let record;
     try { record = makeSave({ place }); } catch (e) { toast(e.message); return; }
@@ -124,8 +132,8 @@ function PlaceSheet({ place, here, onClose }) {
       headerExtra={<Icon name={kindIcon(place.category)} className={`map-kind map-kind-${state || "none"}`} />}>
       {facts && <p className="map-place-line t-tab">{facts}</p>}
       {state === "done" && <p className="map-place-state map-place-done"><Icon name="check" size={16} />Done</p>}
-      {state === "planned" && <p className="map-place-state map-place-saved">Planned</p>}
-      {source && <p className="map-place-state map-place-saved">{source[0].toUpperCase() + source.slice(1)}</p>}
+      {state === "planned" && <p className="map-place-state map-place-saved">{planned}</p>}
+      {source && <p className="map-place-state map-place-saved">{source}</p>}
       <div className="map-place-actions">
         <Button variant="quiet" icon={state === "saved" ? "check" : "pile"} className={state === "saved" ? "map-saved" : ""}
           disabled={!canEdit || !!state} onClick={addToPile}>{state === "saved" ? "Saved" : "Save"}</Button>

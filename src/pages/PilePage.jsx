@@ -11,9 +11,10 @@ import { useApp } from "../app/AppContext";
 import useHashTarget from "../app/useHashTarget";
 import { placeForOuting } from "../city/cityPlaces";
 import { count } from "../city/placeText";
-import { localDate, validateOuting } from "../model";
+import { validateOuting } from "../model";
 import { clipText } from "../saveSource";
-import { attachPlace, findDuplicate, makeSave, saveToPlan } from "../saves";
+import { attachPlace, findDuplicate, makeSave } from "../saves";
+import { pickDay, planFromPick } from "../tonight/tonightModel";
 import { Icon } from "../ui";
 import { AddSheet, CaptionSheet } from "../pile/AddSheet";
 import ConfirmSheet from "../pile/ConfirmSheet";
@@ -25,15 +26,23 @@ import "@fontsource-variable/instrument-sans/wght-italic.css";
 import "./PilePage.css";
 
 const stamp = () => new Date().toISOString();
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+// "Go tonight", or "Go Saturday" for a save dated later this week.
+function goLabel(save, now) {
+  const day = pickDay({ save }, now);
+  return day === tonightDate(now) ? "Go tonight" : `Go ${DAYS[new Date(`${day}T12:00:00`).getDay()]}`;
+}
 const DUPLICATE = { saved: "Already on pile", planned: "Already planned", visited: "Already done" };
 
 export default function PilePage() {
-  const { saves, outings, places, placeById, city, actions, canEdit, toast, ready } = useApp();
+  const { saves, outings, places, placeById, city, cityStatus, actions, canEdit, toast, ready } = useApp();
   // Only when location was already allowed (on the Map); the Pile never asks.
   const { here: position } = useHere();
   const [sheet, setSheet] = useState(null);
   const [busy, setBusy] = useState(false);
   const flow = useRef(0);
+  const outingsRef = useRef(outings);
+  outingsRef.current = outings;
   const [target, clearTarget] = useHashTarget("pile");
   // "#pile/<save id>" (from Tonight's "Find the place") opens that save's search.
   useEffect(() => {
@@ -41,7 +50,8 @@ export default function PilePage() {
     if (saves.some((s) => s.id === target)) setSheet({ type: "save", id: target, finding: true });
     clearTarget();
   }, [target, ready]);
-  const now = new Date(), today = localDate(now);
+  // The session day: until 5 am a save for "tonight" is still tonight.
+  const now = new Date(), today = tonightDate(now);
 
   const placeOf = (save) => (save.place ? placeForOuting(save, places, placeById) || save.place : null);
   const groups = useMemo(() => groupPile(saves, { today, near: position, placeOf }), [saves, today, position, places]);
@@ -60,8 +70,9 @@ export default function PilePage() {
   // leaves the save as a note.
   async function lookUp(save) {
     const id = ++flow.current;
+    toast(null);
     // Nothing to match against yet; "Look up again" works once places are in.
-    if (!places.length) { toast("Places loading. Kept as a note"); setSheet(null); return; }
+    if (!places.length) { toast(cityStatus === "error" ? "Places didn't load. Kept as a note" : "Places loading. Kept as a note"); setSheet(null); return; }
     setBusy(true);
     const result = await requestResolve(
       { url: save.source?.url || "", text: save.source?.text || "", near: searchNear, today },
@@ -69,7 +80,11 @@ export default function PilePage() {
     );
     if (id !== flow.current) return;
     setBusy(false);
-    if (result.status === "error") { toast(ERROR_TEXT[result.reason]); setSheet(null); return; }
+    if (result.status === "error") {
+      toast(ERROR_TEXT[result.reason], { action: { label: "Retry", run: () => { const live = outingsRef.current.find((o) => o.id === save.id); if (live?.status === "saved" && !live.place) lookUp(live); } } });
+      setSheet(null);
+      return;
+    }
     if (result.status === "needs-text") { setSheet({ type: "caption", id: save.id }); return; }
     const queue = candidateQueue(result.candidates, places, searchNear);
     if (queue.length) { setSheet({ type: "confirm", id: save.id, queue, index: 0 }); return; }
@@ -114,9 +129,13 @@ export default function PilePage() {
     await lookUp(next);
   }
 
+  // A plan already standing for the venue is moved to tonight, never doubled.
   async function tonight(save) {
-    try { await store(saveToPlan(save, tonightDate())); } catch { return; }
-    toast("On tonight's plan");
+    let plan;
+    try { plan = planFromPick({ id: `save:${save.id}`, kind: "save", save, place: save.place }, { outings, now: new Date(), places, placeById }); } catch (e) { toast(e.message); return; }
+    if (!plan) return;
+    try { await store(plan); } catch { return; }
+    toast(plan.planDate === tonightDate() ? "On tonight's plan" : "Planned");
     close();
   }
 
@@ -171,7 +190,7 @@ export default function PilePage() {
         <SaveSheet key={`save-${current.id}`} save={current} place={placeOf(current)} near={position} now={now} cityName={city.name} places={places}
           canEdit={canEdit && current.status === "saved"} finding={sheet.finding} busy={busy}
           onDates={(change) => dates(current, change)} onPick={(place) => pick(current, place)} onLookUp={() => lookUp(current)}
-          onTonight={() => tonight(current)} onDone={() => { close(); actions.visit(current); }}
+          goLabel={goLabel(current, now)} onTonight={() => tonight(current)} onDone={() => { close(); actions.visit(current); }}
           onRemove={async () => { if (await actions.remove(current)) close(); }} onClose={close} />
       )}
     </>

@@ -46,10 +46,10 @@ export function almostFinished(sets, doneIds, limit = 4) {
     .slice(0, limit);
 }
 
-// "2 left: Gooskis, Pope's Place" / "Pope's Place left" / "3 more" / "9 left".
+// "2 left: Gooskis, Pope's Place" / "Pope's Place left" / "3 left" / "9 left".
 export function leftText(standing, names = 3) {
   if (standing.complete) return "Finished";
-  if (standing.rule === "any") return `${standing.remaining} more`;
+  if (standing.rule === "any") return `${standing.remaining} left`;
   const left = standing.left.map((p) => p.name);
   if (left.length === 1) return `${left[0]} left`;
   if (left.length <= names) return `${left.length} left: ${left.join(", ")}`;
@@ -164,22 +164,32 @@ export function monthName(month, now = new Date()) {
   const date = new Date(`${month}-01T12:00:00`);
   return date.toLocaleDateString("en-US", date.getFullYear() === now.getFullYear() ? { month: "long" } : { month: "long", year: "numeric" });
 }
-// "Fri 13 Nov" for journal rows; "Friday 13 November" for the Done sheet.
-export function shortDay(value) {
+// One US date style everywhere: "Thu, Nov 12" in rows, "Thursday, Nov 12"
+// on sheets, "Nov 12" as a bare fact. Another year adds the year.
+const dayOf = (value) => new Date(`${value}T12:00:00`);
+const md = (d, now) => `${d.toLocaleDateString("en-US", { month: "short" })} ${d.getDate()}${d.getFullYear() === now.getFullYear() ? "" : `, ${d.getFullYear()}`}`;
+export function shortDay(value, now = new Date()) {
   if (!value) return "";
-  const d = new Date(`${value}T12:00:00`);
-  return `${d.toLocaleDateString("en-US", { weekday: "short" })} ${d.getDate()} ${d.toLocaleDateString("en-US", { month: "short" })}`;
+  const d = dayOf(value);
+  return `${d.toLocaleDateString("en-US", { weekday: "short" })}, ${md(d, now)}`;
 }
-export function longDay(value) {
+export function longDay(value, now = new Date()) {
   if (!value) return "";
-  const d = new Date(`${value}T12:00:00`);
-  return `${d.toLocaleDateString("en-US", { weekday: "long" })} ${d.getDate()} ${d.toLocaleDateString("en-US", { month: "long" })}`;
+  const d = dayOf(value);
+  return `${d.toLocaleDateString("en-US", { weekday: "long" })}, ${md(d, now)}`;
 }
 export function factDate(value, now = new Date()) {
-  if (!value) return "";
-  const d = new Date(`${value}T12:00:00`);
-  const base = `${d.getDate()} ${d.toLocaleDateString("en-US", { month: "short" })}`;
-  return d.getFullYear() === now.getFullYear() ? base : `${base} ${d.getFullYear()}`;
+  return value ? md(dayOf(value), now) : "";
+}
+
+// A pick with nothing else to say: what doing it would add to the board.
+// "First in South Side Flats", "1 of 5 for Taste of South Side Flats".
+export function pickFact(effect) {
+  if (!effect?.isNew) return "";
+  const { set, hood } = effect;
+  if (set) return set.complete ? `Finishes ${set.name}` : `${set.done} of ${set.goal} for ${set.name}`;
+  if (hood) return hood.done === 1 ? `First in ${hood.name}` : `${hood.done} of ${hood.total} in ${hood.name}`;
+  return "";
 }
 
 // Companions are stored comma-separated in `with`.

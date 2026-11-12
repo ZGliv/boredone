@@ -11,7 +11,7 @@
 .tn-head { flex: none; padding: var(--s2) var(--gutter) 0; touch-action: none; cursor: grab; user-select: none; }
 .tn-handle { display: block; width: 36px; height: 4px; margin: 0 auto var(--s2); border-radius: 2px; background: var(--line); }
 .tn-title-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); min-height: var(--touch); }
-.tn-grip { padding: 0; border: 0; background: none; cursor: inherit; text-align: left; }
+.tn-grip { flex: 1; align-self: stretch; display: flex; align-items: center; min-height: var(--touch); padding: 0; border: 0; background: none; color: var(--ink); cursor: inherit; text-align: left; }
 .tn-title { font-family: var(--font-display); font-weight: 800; font-size: var(--display-sm); line-height: 1; letter-spacing: 0.01em; }
 .tn-when { color: var(--muted); font-size: var(--text-sm); }
 .tn-more { display: inline-flex; align-items: center; gap: 6px; min-height: var(--touch); margin-right: calc(var(--s2) * -1); padding: 0 var(--s2); border: 0; background: none; color: var(--ink); font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
@@ -25,6 +25,11 @@
   width: 100%; min-height: 48px; padding: 0; border: 0; border-top: var(--hair); background: none; color: var(--ink); text-align: left; cursor: pointer;
 }
 .tn-dock-name { font-size: var(--text-lg); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* An unplaced save is its own words: quoted and italic, as on the Pile. */
+.tn-quoted { font-style: italic; font-weight: 500; }
+.tn-quoted::before { content: "\201C"; }
+.tn-quoted::after { content: "\201D"; }
+.tn-dock-name.tn-quoted { display: block; }
 .tn-ic { color: var(--muted); }
 .tn-ic-blue { color: var(--blue); }
 .tn-dist { color: var(--muted); font-size: var(--text-sm); white-space: nowrap; }
@@ -32,8 +37,10 @@
 /* Open: dials and picks */
 .tn-body { overflow-y: auto; overscroll-behavior: contain; padding: var(--s1) var(--gutter) var(--s4); }
 .tn-dials { display: grid; grid-template-columns: 3fr 2fr; gap: var(--s2); margin-bottom: var(--s3); }
-.tn-dials .segmented { padding: 2px; gap: 2px; }
-.tn-dials .segmented button { min-height: 40px; padding: 0 2px; font-size: var(--text-xs); letter-spacing: 0.01em; white-space: nowrap; }
+.tn-dial { display: grid; gap: var(--s1); min-width: 0; }
+.tn-dial .t-caps { font-size: 10px; color: var(--faint); }
+.tn-dials .segmented { padding: 0; gap: 0; }
+.tn-dials .segmented button { min-height: var(--touch); padding: 0 2px; font-size: var(--text-xs); letter-spacing: 0.01em; white-space: nowrap; }
 @media (max-width: 359px) { .tn-dials { grid-template-columns: 1fr; } }
 .tn-list { list-style: none; margin: 0; padding: 0; }
 .tn-pick { border-top: var(--hair); }

@@ -2,7 +2,7 @@
 import { normalizeKind } from "../venues.js";
 import { ELSEWHERE } from "../cityBoard.js";
 
-const KIND_WORDS = { ice_cream: "Ice cream", biergarten: "Beer garden", amusement_arcade: "Arcade", escape_game: "Escape room", theatre: "Theatre" };
+const KIND_WORDS = { ice_cream: "Ice cream", biergarten: "Beer garden", amusement_arcade: "Arcade", escape_game: "Escape room", theatre: "Theater" };
 // "Coffee shop", "Music venue"; "" when the category is empty.
 export function kindLabel(category = "") {
   const kind = normalizeKind(category);

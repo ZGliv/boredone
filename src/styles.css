@@ -1,21 +1,8 @@
 /* The account panel and its removal dialog (Settings, signed-in only), drawn
    with the design tokens. Everything else uses src/ui primitives. */
 
-/* Bare buttons in those components */
-:where(dialog, .account-panel, .account-removal-confirm, .account-removal-progress) button,
-.account-panel .button {
-  display: inline-flex; align-items: center; justify-content: center; gap: var(--s2);
-  min-height: var(--touch); padding: 0 var(--s4);
-  border: 1px solid var(--gold); border-radius: var(--r-md);
-  background: var(--gold); color: var(--on-gold);
-  font-size: var(--text-md); font-weight: 600; text-decoration: none; cursor: pointer;
-}
-:where(dialog, .account-panel, .account-removal-confirm, .account-removal-progress) button:disabled { opacity: 0.4; cursor: not-allowed; }
-:where(dialog, .account-panel, .account-removal-confirm, .account-removal-progress) button.secondary { background: transparent; border-color: var(--line); color: var(--ink); }
-:where(dialog, .account-panel, .account-removal-confirm, .account-removal-progress) button.text-button,
-.account-panel .text-button { background: none; border-color: transparent; padding: 0 var(--s2); color: var(--muted); }
-.account-panel .text-button:hover:not(:disabled) { color: var(--ink); }
-dialog button.icon-button { width: var(--touch); padding: 0; background: none; border-color: transparent; color: var(--muted); }
+/* The dialog's close control; every other button is the Button primitive. */
+dialog button.icon-button { display: inline-grid; place-items: center; width: var(--touch); min-height: var(--touch); padding: 0; border: 0; border-radius: var(--r-md); background: none; color: var(--muted); cursor: pointer; }
 dialog button.icon-button:hover { color: var(--ink); }
 .button-row, .dialog-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s2); }
 .dialog-actions { justify-content: flex-end; margin-top: var(--s5); }
@@ -43,9 +30,7 @@ dialog::backdrop { background: var(--scrim); }
 .quiet-details summary { min-height: var(--touch); display: flex; align-items: center; color: var(--muted); font-weight: 600; cursor: pointer; }
 /* Notices */
 .account-panel .notice, dialog .notice { margin: var(--s3) 0; padding: var(--s3) var(--s4); border: var(--hair); border-radius: var(--r-md); background: var(--raised); font-size: var(--text-sm); }
-.account-removal-confirm .hint { color: var(--muted); font-size: var(--text-sm); }
-.danger-text { color: var(--ink); font-weight: 600; }
-:where(dialog, .account-panel, .account-removal-confirm) button.danger-button { background: var(--ink); border-color: var(--ink); color: var(--body); }
+.account-count { color: var(--muted); font-size: var(--text-sm); margin-right: auto; }
 
 /* Account (Settings) */
 .account-panel { display: grid; gap: var(--s3); margin-top: var(--s4); padding: var(--s4) 0; border-top: var(--hair); border-bottom: var(--hair); }

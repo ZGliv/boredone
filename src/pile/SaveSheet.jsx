@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { distanceText, placeLine } from "../city/placeText";
 import { Button, Icon, Sheet, kindIcon } from "../ui";
 import { ageWords, kmFrom, searchPlaces, sourceName } from "./pile";
@@ -7,14 +7,18 @@ import { longDay } from "../done/boardView";
 // Searching the current city's places by name.
 export function FindPlace({ places, near, cityName, onPick, focus = false }) {
   const [query, setQuery] = useState("");
+  const input = useRef(null);
+  // After the sheet has placed focus (its layout effect), so this wins.
+  useEffect(() => { if (focus) input.current?.focus({ preventScroll: true }); }, []);
   const results = useMemo(() => searchPlaces(places, query, { near }), [places, query, near]);
   return (
     <div className="pile-search">
       <label className="sr-only" htmlFor="pile-search-input">Find a place</label>
       <div className="pile-search-field">
         <Icon name="place" size={18} />
-        <input id="pile-search-input" type="search" autoFocus={focus} autoComplete="off" enterKeyHint="search" placeholder={`Search ${cityName}`}
+        <input id="pile-search-input" ref={input} type="search" autoComplete="off" enterKeyHint="search" placeholder={`Search ${cityName}`}
           value={query} onChange={(event) => setQuery(event.target.value)} />
+        {query && <button type="button" className="pile-search-clear" aria-label="Clear" onClick={() => { setQuery(""); input.current?.focus(); }}><Icon name="close" size={16} /></button>}
       </div>
       {results.length > 0 && (
         <ul className="pile-results">
@@ -56,7 +60,7 @@ function host(url) {
 }
 
 // One save: where it came from, its words, its dates, its place, and what to do with it.
-export default function SaveSheet({ save, place, near, now, cityName, places, canEdit, finding: startFinding, busy, onDates, onPick, onLookUp, onTonight, onDone, onRemove, onClose }) {
+export default function SaveSheet({ save, place, near, now, cityName, places, canEdit, finding: startFinding, busy, goLabel = "Go tonight", onDates, onPick, onLookUp, onTonight, onDone, onRemove, onClose }) {
   const [finding, setFinding] = useState(!!startFinding);
   const source = save.source || {};
   const km = kmFrom(near, place);
@@ -98,7 +102,7 @@ export default function SaveSheet({ save, place, near, now, cityName, places, ca
 
       {canEdit && (
         <div className="pile-detail-actions">
-          {placed && <Button variant="primary" onClick={onTonight}>Go tonight</Button>}
+          {placed && <Button variant="primary" onClick={onTonight}>{goLabel}</Button>}
           {placed && <Button variant="quiet" icon="check" onClick={onDone}>Done</Button>}
           <Button variant="text" onClick={onRemove}>Delete</Button>
         </div>

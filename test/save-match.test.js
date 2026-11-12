@@ -66,3 +66,14 @@ test('garbage input never throws',()=>{
  assert.deepEqual(matchCandidates(null,null,null),[]);
  assert.deepEqual(matchCandidates([null,{}],[null,{name:5}],{lat:'x'}).map(r=>r.matches),[[],[]]);
 });
+test('an event whose venue is only a neighbourhood never matches a business named after it',()=>{
+ const pack=JSON.parse(readFileSync(new URL('../data/city-packs/pittsburgh.json',import.meta.url))).places;
+ assert.ok(pack.some(p=>p.name==='Caffé Mona Strip District'));
+ const event={name:'Pittsburgh Night Market',venue:'Strip District',kind:'event',eventDate:'2026-11-14'};
+ assert.deepEqual(one(event,downtown,pack).matches,[]);
+ // A place named in the caption still matches when its venue is given as the area.
+ const place=one({name:'Caffé Mona Strip District',venue:'Strip District',kind:'cafe'},downtown,pack);
+ assert.equal(place.matches[0]?.place.name,'Caffé Mona Strip District');
+ // The city's own name is an area too.
+ assert.deepEqual(matchCandidates([{name:'Gallery crawl',venue:'Pittsburgh',kind:'event'}],pack,downtown,{areas:['Pittsburgh']})[0].matches,[]);
+});

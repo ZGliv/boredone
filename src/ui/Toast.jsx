@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 
 const ToastContext = createContext(() => {});
 // const toast = useToast(); toast("Saved", {action: {label: "Undo", run}}).
+// toast(null) clears the current one.
 export const useToast = () => useContext(ToastContext);
 
 export function ToastProvider({ children }) {
@@ -9,6 +10,7 @@ export function ToastProvider({ children }) {
   const timer = useRef(0);
   const toast = useCallback((text, { action = null, ms = 3200 } = {}) => {
     clearTimeout(timer.current);
+    if (text == null) { setCurrent(null); return; }
     setCurrent({ text, action, id: Date.now() });
     timer.current = setTimeout(() => setCurrent(null), action ? ms + 2000 : ms);
   }, []);

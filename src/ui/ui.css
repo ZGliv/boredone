@@ -50,14 +50,17 @@
 .field > span, .field-label { font-size: var(--text-xs); font-weight: 600; letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted); }
 .field-inline { position: relative; grid-template-columns: auto 1fr; align-items: center; column-gap: var(--s4); min-height: 52px; border-bottom: var(--hair); cursor: pointer; }
 .field-inline input { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; padding: 0; border: 0; opacity: 0; cursor: pointer; color-scheme: dark; }
-.field-inline:focus-within { outline: 2px solid var(--gold); outline-offset: 2px; }
+.field-inline:focus-within { outline: 2px solid var(--ink); outline-offset: 2px; }
 .field-fact { font-style: normal; font-size: var(--text-lg); font-weight: 600; text-align: right; }
 .field-fact.is-empty { color: var(--faint); font-weight: 400; }
 
 /* Segmented control */
-.segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: var(--hair); border-radius: var(--r-md); padding: 3px; gap: 3px; }
-.segmented button { min-height: 38px; border: 0; border-radius: var(--r-sm); background: none; color: var(--muted); font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
-.segmented button[aria-checked="true"] { background: var(--raised); color: var(--ink); }
+/* One hairline bar; the chosen option is the only one drawn in ink. */
+.segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border: var(--hair); border-radius: var(--r-md); padding: 0; gap: 0; overflow: hidden; }
+.segmented button { min-height: var(--touch); border: 0; border-left: var(--hair); border-radius: 0; background: none; color: var(--muted); font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
+.segmented button:first-child { border-left: 0; }
+.segmented button:hover { color: var(--ink); }
+.segmented button[aria-checked="true"] { background: var(--ink); color: var(--body); }
 
 /* Progress dots and ring */
 .dots { display: inline-flex; gap: 4px; align-items: center; }

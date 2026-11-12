@@ -1,10 +1,12 @@
 import React from "react";
 import { distanceText, placeLine } from "../city/placeText";
 import { Icon, kindIcon } from "../ui";
-import { ageWords, clockText, kmFrom, shortAge, sourceName } from "./pile";
+import { ageWords, clockText, kmFrom, saveTitle, shortAge, sourceName } from "./pile";
 
 // One save in the list. Unplaced saves show their words in quotes and a
-// "Find it" button; placed ones show the place and the save's age.
+// "Find it" button; placed ones show the place and, at the end, the save's
+// age, or in the dated groups (showClock) its date, so "today" never reads
+// as "ends today".
 export default function PileRow({ save, place, near, today, now, showClock, canEdit, onOpen, onFind }) {
   const text = save.source?.text?.trim() || "";
   const clock = showClock ? clockText(save, today) : "";
@@ -15,10 +17,10 @@ export default function PileRow({ save, place, near, today, now, showClock, canE
     fact = [placeLine(place), km === null ? "" : distanceText(km)].filter(Boolean).join(", ");
     glyph = kindIcon(place?.category || save.place.category);
   } else {
-    title = text ? `“${text}”` : sourceName(save);
+    title = text ? `“${saveTitle(save)}”` : sourceName(save);
     const age = ageWords(save.source?.savedAt || save.createdAt, now);
     // A bare link already has its source as the title.
-    fact = !text ? age[0].toUpperCase() + age.slice(1) : `${save.source?.url ? sourceName(save) : "Your note"}, ${age}`;
+    fact = !text ? `Saved ${age}` : `${sourceName(save)} · Saved ${age}`;
     glyph = save.source?.url ? "link" : "note";
   }
   return (
@@ -28,16 +30,17 @@ export default function PileRow({ save, place, near, today, now, showClock, canE
         <span className="pile-row-text">
           <span className="pile-row-title">{title}</span>
           <span className="pile-row-fact">
-            {clock && <span className="pile-clock">{clock}</span>}
-            {clock && fact ? " · " : ""}{fact}
+            {clock && !save.place && <><span className="pile-clock">{clock}</span> · </>}{fact}
           </span>
         </span>
-        {save.place && (
-          <span className="pile-age t-tab">
-            <Icon name={save.source?.url ? "link" : "note"} size={13} />
-            {shortAge(save.source?.savedAt || save.createdAt, now)}
-          </span>
-        )}
+        {save.place && (clock
+          ? <span className="pile-when t-tab">{clock}</span>
+          : (
+            <span className="pile-age t-tab">
+              <Icon name={save.source?.url ? "link" : "note"} size={13} />
+              {shortAge(save.source?.savedAt || save.createdAt, now)}
+            </span>
+          ))}
       </button>
       {!save.place && canEdit && <button type="button" className="pile-find-btn" onClick={() => onFind(save)}>Find it</button>}
     </li>

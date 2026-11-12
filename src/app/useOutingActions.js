@@ -1,6 +1,5 @@
 import { localDate, makeOuting } from "../model";
 import { manualOuting } from "./outings";
-import { outingLabel } from "../saves";
 
 // Writing the journal: saves, plans and memories. Recreated each render so
 // every handler sees the current library.
@@ -12,16 +11,23 @@ import { outingLabel } from "../saves";
 //   edit(outing)       open the editor on an existing plan or memory
 //   manual(memory)     open the editor on a blank plan or memory
 //   saveOuting(...)    the editor's own save; not for screens
+// "Delete Gooski's", or "Delete this note" for a save with no place: a
+// caption never becomes the sentence.
+export function deleteTitle(outing) {
+  if (outing?.place?.name) return `Delete ${outing.place.name}`;
+  return outing?.source?.url ? "Delete this link" : "Delete this note";
+}
+
 export default function useOutingActions({ journal, account, setEditor, toast, confirm, navigate }) {
   const { library, libraryRef, commit, setStorageError } = journal;
   async function saveOuting(outing, originalStamp, isNew, draftId, draftStamp) {
     const current = libraryRef.current.outings,
       existing = current.find((x) => x.id === outing.id);
-    if (isNew && existing) throw new Error("Already saved in another tab. Your draft is kept.");
-    if (!isNew && !existing) throw new Error("Removed in another tab.");
-    if (!isNew && existing.updatedAt !== originalStamp) throw new Error("Changed in another tab. Close and reopen it.");
+    if (isNew && existing) throw new Error("Saved in another tab");
+    if (!isNew && !existing) throw new Error("Deleted in another tab");
+    if (!isNew && existing.updatedAt !== originalStamp) throw new Error("Changed in another tab");
     if (isNew && outing.status === "planned" && current.some((x) => x.status === "planned" && x.place?.id === outing.place?.id))
-      throw new Error("Already planned.");
+      throw new Error("Already planned");
     await commit(existing ? current.map((o) => (o.id === outing.id ? outing : o)) : [outing, ...current], draftId, draftStamp);
     setEditor(null);
     toast(outing.status === "visited" ? "Saved to journal" : "Planned");
@@ -55,7 +61,7 @@ export default function useOutingActions({ journal, account, setEditor, toast, c
     setEditor({ isNew: false, outing });
   }
   async function remove(outing) {
-    if (!(await confirm(`Delete ${outingLabel(outing)}${account?.owner ? " everywhere" : ""}?`))) return false;
+    if (!(await confirm(`${deleteTitle(outing)}${account?.owner ? " everywhere" : ""}?`))) return false;
     try {
       await commit(libraryRef.current.outings.filter((o) => o.id !== outing.id));
       toast("Deleted");

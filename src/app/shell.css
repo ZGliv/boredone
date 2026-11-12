@@ -29,7 +29,7 @@
 .page-title { font-family: var(--font-display); font-weight: 800; font-size: var(--display-md); line-height: var(--leading-tight); }
 .city-switcher { display: inline-flex; align-items: center; gap: var(--s1); min-height: var(--touch); margin-left: calc(var(--s2) * -1); padding: 0 var(--s2); border: 0; border-radius: var(--r-md); background: none; color: var(--muted); font-size: var(--text-md); font-weight: 600; cursor: pointer; }
 .city-switcher:hover { color: var(--ink); }
-.city-current { color: var(--gold); }
+.city-current { color: var(--ink); }
 .page-status { display: flex; align-items: center; gap: var(--s3); min-height: var(--touch); color: var(--muted); font-size: var(--text-sm); }
 .page-status button { min-height: var(--touch); padding: 0 var(--s2); border: 0; background: none; color: var(--ink); font-weight: 700; text-decoration: underline; cursor: pointer; }
 .section-label { margin: var(--s6) 0 var(--s1); }

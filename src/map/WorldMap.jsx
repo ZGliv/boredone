@@ -46,13 +46,17 @@ export default function WorldMap({ places, states, center, selectedId = null, on
     instance.on("load", () => {
       instance.addSource("places", { type: "geojson", data: toFeatures(places, states), promoteId: "id" });
       const color = ["match", ["get", "state"], "done", "#ffc72c", "planned", "#6cb6ff", "saved", MAP_COLORS.night, DOT];
-      const lift = ["match", ["get", "state"], "", 0, 1.2];
-      instance.addLayer({ id: "places-dots", type: "circle", source: "places", paint: {
+      // Untouched places first, then yours in their own layer on top, a size
+      // up and edged in night, so a gold done never hides under grey dots.
+      instance.addLayer({ id: "places-dots", type: "circle", source: "places", filter: ["==", ["get", "state"], ""], paint: {
+        "circle-color": DOT, "circle-opacity": 0.55,
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 1.6, 14, 3.4, 17, 6],
+      } });
+      instance.addLayer({ id: "places-marked", type: "circle", source: "places", filter: ["!=", ["get", "state"], ""], paint: {
         "circle-color": color,
-        "circle-opacity": ["match", ["get", "state"], "", 0.55, 1],
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, ["+", 1.6, lift], 14, ["+", 3.4, lift], 17, ["+", 6, lift]],
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 3.4, 14, 5.2, 17, 8],
         "circle-stroke-color": ["match", ["get", "state"], "saved", "#6cb6ff", MAP_COLORS.night],
-        "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 10, ["match", ["get", "state"], "saved", 1.2, 0], 15, ["match", ["get", "state"], "saved", 1.8, 1]],
+        "circle-stroke-width": ["match", ["get", "state"], "saved", 2, 1.4],
       } });
       instance.addLayer({ id: "places-selected", type: "circle", source: "places", filter: ["==", ["get", "id"], ""], paint: {
         "circle-color": ["match", ["get", "state"], "saved", "#6cb6ff", "", "#f5f3ea", color], "circle-radius": ["interpolate", ["linear"], ["zoom"], 10, 6, 17, 11],

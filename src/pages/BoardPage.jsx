@@ -35,6 +35,8 @@ export default function BoardPage() {
     const [row] = nextUp(board, outings, { limit: 1 });
     return row?.started ? row : null;
   }, [board, outings, doneIds]);
+  // The set "Next" already names is not listed again under it.
+  const shown = close.filter((set) => !next || next.groupId !== `set:${set.id}`);
   const hoods = useMemo(() => (progress ? progress.byNeighborhood.filter((row) => row.name !== ELSEWHERE)
     .sort((a, b) => b.done - a.done || b.total - a.total || a.name.localeCompare(b.name)) : []), [progress]);
   const kinds = useMemo(() => (progress ? progress.byKind.filter((row) => row.total > 0)
@@ -77,11 +79,11 @@ export default function BoardPage() {
             </button>
           )}
 
-          {close.length > 0 && (
+          {shown.length > 0 && (
             <section>
               <h2 className="t-caps section-label">Almost finished</h2>
               <ul className="board-sets">
-                {close.map((set) => (
+                {shown.map((set) => (
                   <li key={set.id}>
                     <button type="button" onClick={() => show("set", set.id)}>
                       <span className="board-set-name">{set.name}</span>
@@ -98,7 +100,7 @@ export default function BoardPage() {
           )}
 
           <section>
-            <h2 className="t-caps section-label">Neighbourhoods <span className="t-tab">{hoods.length}</span></h2>
+            <h2 className="t-caps section-label">Neighborhoods <span className="t-tab">{hoods.length}</span></h2>
             <ul className="board-hoods">
               {(allHoods ? hoods : hoods.slice(0, Math.max(8, hoods.filter((r) => r.done).length))).map((row) => (
                 <li key={row.name}>
@@ -124,7 +126,7 @@ export default function BoardPage() {
                     <Icon name={kindIcon(row.kind)} size={20} className={row.done ? "is-started" : ""} />
                     <span className="board-kind-name">{cap(kindPlural(row.kind))}</span>
                     <span className="board-kind-bar" aria-hidden="true"><i style={{ width: `${(row.done / row.total) * 100}%` }} /></span>
-                    <span className="board-kind-count t-tab">{row.done}<span> / {count(row.total)}</span></span>
+                    <span className="board-kind-count t-tab">{row.done}<span> of {count(row.total)}</span></span>
                   </button>
                 </li>
               ))}

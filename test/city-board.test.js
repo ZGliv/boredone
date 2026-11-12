@@ -509,7 +509,7 @@ test("nextUp points at the nearest undone place in the closest-to-finished set",
   assert.equal(ideas[0].place.name, "Leaf & Bean");
   assert.equal(ideas[0].reason, "1 left to finish Strip District coffee spots");
   assert.equal(ideas[1].place.name, "Pamela's Diner", "then the nearest place toward the next closest goal");
-  assert.equal(ideas[1].reason, "2 more for Taste of Strip District");
+  assert.equal(ideas[1].reason, "2 left for Taste of Strip District");
   assert.equal(ideas[1].distanceKm, 0);
 });
 
@@ -517,7 +517,7 @@ test("nextUp prefers the closest-to-finished group over a nearer place", () => {
   const rows = LV_COFFEE.slice(0, 3).map((id, i) => visit(real(id), day(i + 1)));
   const constellation = real(LV_COFFEE[5]);
   const ideas = nextUp(board(), rows, { location: { lat: constellation.lat, lng: constellation.lng }, limit: 1 });
-  assert.equal(ideas[0].reason, "2 more for Taste of Lawrenceville");
+  assert.equal(ideas[0].reason, "2 left for Taste of Lawrenceville");
   assert.equal(ideas[0].place.name, "Constellation Coffee");
 });
 

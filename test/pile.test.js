@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {makeSave, attachPlace} from '../src/saves.js';
-import {readInput, cleanLink, sourceName, fromLine, ageWords, shortAge, clockText, groupPile, reasonText, candidateQueue, captionDates, searchPlaces, requestResolve, tonightDate, kmFrom} from '../src/pile/pile.js';
+import {readInput, cleanLink, sourceName, fromLine, ageWords, shortAge, clockText, groupPile, reasonText, saveTitle, savedText, candidateQueue, captionDates, searchPlaces, requestResolve, tonightDate, kmFrom} from '../src/pile/pile.js';
 
 const now = new Date('2026-11-12T23:00:00.000Z'); // Thursday evening in Pittsburgh
 const at = iso => new Date(iso);
@@ -23,11 +23,11 @@ test('readInput separates a link from the words around it and drops share tracki
 test('sourceName and fromLine say where a save came from in plain words', () => {
   const reel = makeSave({url: 'https://www.instagram.com/reel/C0ffee/', now: at('2026-11-12T22:59:30Z')});
   assert.equal(sourceName(reel), 'Instagram Reel');
-  assert.equal(fromLine(reel, now), 'From an Instagram Reel, just now');
-  assert.equal(fromLine(makeSave({url: 'https://vm.tiktok.com/ZMabc/', now: at('2026-11-10T18:00:00Z')}), now), 'From a TikTok, 2 days ago');
-  assert.equal(fromLine(makeSave({url: 'https://maps.app.goo.gl/xyz', now}), now), 'From Google Maps, just now');
-  assert.equal(fromLine(makeSave({url: 'https://www.eater.com/maps/best-pittsburgh', now}), now), 'From eater.com, just now');
-  assert.equal(fromLine(makeSave({text: 'ramen', now: at('2026-11-10T18:00:00Z')}), now), 'Your note, 2 days ago');
+  assert.equal(fromLine(reel, now), 'Instagram Reel · Saved today');
+  assert.equal(fromLine(makeSave({url: 'https://vm.tiktok.com/ZMabc/', now: at('2026-11-10T18:00:00Z')}), now), 'TikTok · Saved 2 days ago');
+  assert.equal(fromLine(makeSave({url: 'https://maps.app.goo.gl/xyz', now}), now), 'Google Maps · Saved today');
+  assert.equal(fromLine(makeSave({url: 'https://www.eater.com/maps/best-pittsburgh', now}), now), 'eater.com · Saved today');
+  assert.equal(fromLine(makeSave({text: 'ramen', now: at('2026-11-10T18:00:00Z')}), now), 'Your note · Saved 2 days ago');
   assert.equal(sourceName(makeSave({url: 'https://youtube.com/shorts/abcdefgh', now})), 'YouTube Short');
 });
 
@@ -77,9 +77,11 @@ test('groupPile: clocks first, then unplaced, then placed by distance, expired k
   assert.equal(kmFrom(null, lawrenceville), null);
 });
 
-test("reasonText keeps saveMatch's reason minus its search-centre distance", () => {
-  assert.equal(reasonText('same name · 3.6 km away · same kind of place'), 'Same name, same kind of place');
-  assert.equal(reasonText('similar name (88%) · one of 3 locations'), 'Similar name (88%), one of 3 locations');
+test("reasonText keeps only the fact that tells a candidate apart", () => {
+  assert.equal(reasonText('same name · 3.6 km away · same kind of place'), '');
+  assert.equal(reasonText('similar name (88%) · one of 3 locations'), 'One of 3 locations');
+  assert.equal(reasonText('same name · one of 3 locations', 3), '', 'the card counter already says 1/3');
+  assert.equal(reasonText('similar name (80%) · different kind of place'), 'Different kind of place');
   assert.equal(reasonText(''), '');
 });
 
@@ -130,4 +132,10 @@ test('requestResolve turns every resolver outcome into something the save surviv
 test('tonightDate runs until 5 am', () => {
   assert.equal(tonightDate(new Date(2026, 10, 13, 2, 0)), '2026-11-12');
   assert.equal(tonightDate(new Date(2026, 10, 13, 6, 0)), '2026-11-13');
+});
+
+test('saveTitle names an unplaced save by its words, with handles and tags as plain words', () => {
+  assert.equal(saveTitle(makeSave({text: 'Finally tried the pierogi at @aptekapgh #pittsburgh https://x.co/1'})), 'Finally tried the pierogi at aptekapgh pittsburgh');
+  assert.equal(saveTitle(makeSave({url: 'https://www.instagram.com/reel/abc'})), 'Instagram Reel');
+  assert.equal(savedText(makeSave({text: 'x', now: new Date('2026-10-20T15:00:00Z')}), new Date('2026-11-12T18:00:00Z')), 'Saved 3 weeks ago');
 });

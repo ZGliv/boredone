@@ -2,24 +2,29 @@ import React, { useEffect, useRef, useState } from "react";
 import { directions } from "../app/routes";
 import { sheetDragAction } from "../sheetGesture.js";
 import { Button, Icon, SegmentedControl, kindIcon } from "../ui";
-import { COMPANY, ENERGY, planFor } from "./tonightModel.js";
+import { shortDay } from "../done/boardView";
+import { COMPANY, ENERGY, pickDay, sessionDate } from "./tonightModel.js";
 import "./tonight.css";
 
 // Tonight's three, docked under the map. Three heights: "peek" (just the
 // title), "dock" (the three names) and "open" (dials, reasons, actions).
 // Swipe the top edge up or down to move between them; tap it to toggle.
 //   tonight: useTonight(); mode/setMode; openId/setOpenId (the pick shown as a card)
-//   outings: the journal, to show a pick that is already planned
+//   planOf(pick): the plan standing for the pick's venue, or null
+//   factOf(pick): a board fact for a pick decide gave no reason for
 //   onGo(pick), onDone(plan), onFind(pick), onHeight(px)
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WEEKDAY_LONG = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const weekdayOf = (day) => WEEKDAY_LONG[new Date(`${day}T12:00:00`).getDay()];
 const when = (d) => `${WEEKDAY[d.getDay()]} ${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, "0")} ${d.getHours() < 12 ? "am" : "pm"}`;
 const UP = { peek: "dock", dock: "open", open: "open" };
 const DOWN = { open: "dock", dock: "peek", peek: "peek" };
 
-export default function TonightPanel({ tonight, mode, setMode, openId, setOpenId, outings, canEdit, onGo, onDone, onFind, onHeight }) {
+export default function TonightPanel({ tonight, mode, setMode, openId, setOpenId, planOf, factOf, canEdit, onGo, onDone, onFind, onHeight }) {
   const root = useRef(null), drag = useRef(null);
   const [offset, setOffset] = useState(0);
   const { picks } = tonight;
+  const today = sessionDate(tonight.now);
   useEffect(() => {
     const el = root.current;
     if (!el) return;
@@ -69,7 +74,7 @@ export default function TonightPanel({ tonight, mode, setMode, openId, setOpenId
             <li key={pick.id}>
               <button type="button" className="tn-dock-row" onClick={() => { setOpenId(pick.id); setMode("open"); }}>
                 <Icon name={pickIcon(pick)} size={20} className={pick.save ? "tn-ic-blue" : "tn-ic"} />
-                <span className="tn-dock-name">{pick.title}</span>
+                <span className={`tn-dock-name${pick.quoted ? " tn-quoted" : ""}`}>{pick.title}</span>
                 <span className="tn-dist t-tab">{pick.distance}</span>
               </button>
             </li>
@@ -80,37 +85,44 @@ export default function TonightPanel({ tonight, mode, setMode, openId, setOpenId
       {mode === "open" && (
         <div className="tn-body">
           <div className="tn-dials">
-            <SegmentedControl label="Who" options={COMPANY} value={tonight.company} onChange={tonight.setCompany} />
-            <SegmentedControl label="Energy" className="tn-energy" options={ENERGY} value={tonight.energy} onChange={tonight.setEnergy} />
+            <div className="tn-dial"><span className="t-caps" aria-hidden="true">Who</span>
+              <SegmentedControl label="Who" options={COMPANY} value={tonight.company} onChange={tonight.setCompany} /></div>
+            <div className="tn-dial"><span className="t-caps" aria-hidden="true">Energy</span>
+              <SegmentedControl label="Energy" className="tn-energy" options={ENERGY} value={tonight.energy} onChange={tonight.setEnergy} /></div>
           </div>
           <ol className="tn-list">
             {picks.map((pick) => {
-              const open = pick.id === openId, plan = planFor(pick, outings);
+              const open = pick.id === openId, plan = planOf(pick);
+              // The pick's day: tonight, or the later date a save is for.
+              const day = pickDay(pick, tonight.now), later = day !== today;
+              const onDay = !!plan && plan.planDate === day;
+              const planLine = plan && (onDay ? (later ? `Planned ${shortDay(day)}` : "On tonight's plan") : plan.planDate ? `Planned ${shortDay(plan.planDate)}` : "Planned");
+              const reasons = pick.reasons.length ? pick.reasons : open && factOf(pick) ? [{ text: factOf(pick), tone: "" }] : [];
               return (
                 <li key={pick.id} className={`tn-pick${open ? " tn-pick-open" : ""}`}>
                   <button type="button" className="tn-pick-head" aria-expanded={open} onClick={() => setOpenId(open ? null : pick.id)}>
                     <span className={`tn-badge${pick.save ? " tn-badge-blue" : ""}${open ? " tn-badge-on" : ""}`}><Icon name={pickIcon(pick)} size={open ? 24 : 20} /></span>
                     <span className="tn-main">
-                      <span className="tn-name">{pick.title}</span>
+                      <span className={`tn-name${pick.quoted ? " tn-quoted" : ""}`}>{pick.title}</span>
                       {pick.line && <span className="tn-line">{pick.line}</span>}
-                      {!open && pick.reasons[0] && <span className={`tn-reason-lead${pick.reasons[0].tone ? ` tn-${pick.reasons[0].tone}` : ""}`}>{pick.reasons[0].text}</span>}
+                      {!open && reasons[0] && <span className={`tn-reason-lead${reasons[0].tone ? ` tn-${reasons[0].tone}` : ""}`}>{reasons[0].text}</span>}
                     </span>
                     <span className="tn-dist t-tab">{pick.distance}</span>
                   </button>
                   {open && (
                     <div className="tn-card">
-                      {(pick.reasons.length > 0 || plan) && (
+                      {(reasons.length > 0 || plan) && (
                         <ul className="tn-reasons">
-                          {plan && <li className="tn-blue"><Icon name="check" size={16} />On tonight's plan</li>}
-                          {pick.reasons.map((r) => <li key={r.text} className={r.tone ? `tn-${r.tone}` : ""}><span className="tn-tick" aria-hidden="true" />{r.text}</li>)}
+                          {plan && <li className="tn-blue"><Icon name="check" size={16} />{planLine}</li>}
+                          {reasons.map((r) => <li key={r.text} className={r.tone ? `tn-${r.tone}` : ""}><span className="tn-tick" aria-hidden="true" />{r.text}</li>)}
                         </ul>
                       )}
                       <div className="tn-actions">
                         {pick.unplaced
                           ? <Button variant="primary" iconAfter="forward" onClick={() => onFind(pick)}>Find the place</Button>
-                          : plan
-                            ? <Button variant="primary" icon="check" disabled={!canEdit} onClick={() => onDone(plan)}>Done</Button>
-                            : <Button variant="primary" disabled={!canEdit} onClick={() => onGo(pick)}>Go tonight</Button>}
+                          : onDay
+                            ? (!later && <Button variant="primary" icon="check" disabled={!canEdit} onClick={() => onDone(plan)}>Done</Button>)
+                            : <Button variant="primary" disabled={!canEdit} onClick={() => onGo(pick)}>{later ? `Go ${weekdayOf(day)}` : "Go tonight"}</Button>}
                         {pick.spot
                           ? <Button variant="quiet" icon="directions" href={directions({ ...pick.spot, name: pick.place?.name || pick.event?.venueName || pick.title, address: pick.place?.address || "" })}>Directions</Button>
                           : pick.event?.url ? <Button variant="quiet" icon="link" href={pick.event.url}>Event page</Button>

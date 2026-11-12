@@ -15,3 +15,10 @@ test('night map uses neutral greys and one water blue only', () => {
   assert.equal(style.layers.find(x => x.id === 'water').paint['fill-color'], '#1c2730');
   assert.equal(style.layers[0].paint['background-color'], '#101010');
 });
+
+test('map labels use the bundled text face and fetch no fonts', () => {
+  const style = worldStyle();
+  assert.equal(style.glyphs, undefined);
+  const fonts = new Set(style.layers.filter(l => l.layout?.['text-font']).flatMap(l => l.layout['text-font']));
+  assert.deepEqual([...fonts], ['Instrument Sans Variable']);
+});

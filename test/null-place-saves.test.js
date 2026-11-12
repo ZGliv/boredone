@@ -87,7 +87,7 @@ test('outing actions handle a null-place save in the library and in the delete p
   actions.addPlan(place('p5', 'Fresh'));
   assert.equal(editor.isNew, true);
   await actions.remove(noteSave);
-  assert.match(prompt, /^Delete that ramen place Sam mentioned\?$/);
+  assert.equal(prompt, "Delete this note?", "a caption never becomes the sentence");
   assert.deepEqual(committed.map(o => o.id), library.filter(o => o.id !== noteSave.id).map(o => o.id));
   await assert.rejects(actions.saveOuting(outing('new-plan', 'planned', place('p1', 'Planned Bar')), stamp, true), /Already planned/);
 });

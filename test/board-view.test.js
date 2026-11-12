@@ -5,7 +5,7 @@ import { setProgress, boardProgress, ELSEWHERE } from "../src/cityBoard.js";
 import { cityFromPack, placeStates } from "../src/city/cityPlaces.js";
 import {
   boardSets, doneIdsFrom, setStanding, almostFinished, leftText, gridCells, gridLayout, CELL,
-  splitPlaces, doneEffect, effectLines, verdictLabel, VERDICTS, byMonth, monthName, toggleName, hasName, factDate,
+  splitPlaces, doneEffect, effectLines, verdictLabel, VERDICTS, byMonth, monthName, toggleName, hasName, factDate, shortDay, longDay, pickFact,
 } from "../src/done/boardView.js";
 
 const { board, places } = cityFromPack(pack, Date.parse("2026-11-12"));
@@ -54,7 +54,7 @@ test("leftText names what is left only when it is short", () => {
   assert.equal(leftText(s), `2 left: ${s.left.map((p) => p.name).join(", ")}`);
   assert.equal(leftText({ ...s, left: s.left.slice(0, 1) }), `${s.left[0].name} left`);
   assert.equal(leftText({ ...s, left: [1, 2, 3, 4].map((n) => ({ name: `P${n}` })) }), "4 left");
-  assert.equal(leftText({ ...s, rule: "any", remaining: 3 }), "3 more");
+  assert.equal(leftText({ ...s, rule: "any", remaining: 3 }), "3 left");
   assert.equal(leftText({ ...s, complete: true }), "Finished");
 });
 
@@ -131,8 +131,13 @@ test("byMonth groups newest-first memories by month", () => {
   const now = new Date("2026-11-12T12:00:00");
   assert.equal(monthName("2026-11", now), "November");
   assert.equal(monthName("2025-11", now), "November 2025");
-  assert.equal(factDate("2026-11-03", now), "3 Nov");
-  assert.equal(factDate("2025-11-03", now), "3 Nov 2025");
+  assert.equal(factDate("2026-11-03", now), "Nov 3");
+  assert.equal(factDate("2025-11-03", now), "Nov 3, 2025");
+  assert.equal(shortDay("2026-11-12", now), "Thu, Nov 12");
+  assert.equal(longDay("2026-11-12", now), "Thursday, Nov 12");
+  assert.equal(pickFact({ isNew: true, set: null, hood: { name: "South Side Flats", done: 1, total: 40 } }), "First in South Side Flats");
+  assert.equal(pickFact({ isNew: true, set: { name: "Taste of South Side Flats", done: 1, goal: 5, complete: false }, hood: null }), "1 of 5 for Taste of South Side Flats");
+  assert.equal(pickFact({ isNew: false }), "");
 });
 
 test("toggleName adds and removes companions in the stored text", () => {

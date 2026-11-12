@@ -35,12 +35,21 @@ export const ICONS = {
   wine: "M8 3.6h8l.4 4a4.4 4.4 0 0 1-8.8 0Z M12 12v8.4 M8.6 20.4h6.8",
   coffee: "M4.8 9.2h11v5.2a5 5 0 0 1-5 5h-1a5 5 0 0 1-5-5Z M15.8 10.6h1.5a2.3 2.3 0 0 1 0 4.6h-1.5 M8.8 3.6c-.8 1 .8 2 0 3 M12.2 3.6c-.8 1 .8 2 0 3",
   film: "M4.4 5.4h15.2v13.2H4.4Z M8 5.4v13.2 M16 5.4v13.2 M4.4 9.6H8 M4.4 14.4H8 M16 9.6h3.6 M16 14.4h3.6",
-  theatre: "M3.6 4.4h16.8 M5 4.4c0 6 1.5 10.2 4.6 12.2 M19 4.4c0 6-1.5 10.2-4.6 12.2 M3.6 19.6h16.8",
+  // Two masks, the second tucked behind the first.
+  theatre: "M3.8 4.6c2.8 1.1 6.4 1.1 9.2 0v6.2a4.6 4.6 0 0 1-9.2 0Z M6 8.4h1.4 M9.4 8.4h1.4 M6.4 11.6c1.1.9 2.9.9 4 0 M13 9.6c2.4.6 5 .4 7.2-.6v5.8a4.6 4.6 0 0 1-8.4 2.6 M14.8 12.8h1.2 M17.6 12.6h1.2 M15.2 16.4c.9-.7 2.4-.7 3.2 0",
+  columns: "M3.6 8.8 12 4.2l8.4 4.6Z M5.6 8.8v8.8 M9.9 8.8v8.8 M14.1 8.8v8.8 M18.4 8.8v8.8 M3.6 19.8h16.8",
   music: "M9 17.4V5.6l10-2v11.8 M9 17.4a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z M19 15.4a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0Z",
   mic: "M9.6 4.6a2.4 2.4 0 0 1 4.8 0v5.8a2.4 2.4 0 0 1-4.8 0Z M6.6 10.4a5.4 5.4 0 0 0 10.8 0 M12 15.8v4.6 M9 20.4h6",
   dance: "M18 13a6 6 0 1 1-12 0 6 6 0 0 1 12 0Z M6 13h12 M12 7c-2 1.8-2 10.2 0 12 M12 7c2 1.8 2 10.2 0 12 M12 3v4",
   play: "M5 5h14v14H5Z M9 9h.01 M15 9h.01 M12 12h.01 M9 15h.01 M15 15h.01",
-  sports: "M6.4 20.6V3.6 M6.4 4.2h10.8l-2.4 3.6 2.4 3.6H6.4",
+  sports: "M20 12a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z M5.8 7c3.4 1.7 3.4 8.3 0 10 M18.2 7c-3.4 1.7-3.4 8.3 0 10",
+  bowling: "M12 3.6c-1.3 0-2 1.1-2 2.5 0 1.2.7 1.9.7 2.9 0 1.5-2.3 3.2-2.3 6.6 0 2.3.9 4 1.6 4.8h4c.7-.8 1.6-2.5 1.6-4.8 0-3.4-2.3-5.1-2.3-6.6 0-1 .7-1.7.7-2.9 0-1.4-.7-2.5-2-2.5Z M10.6 9.6h2.8",
+  golf: "M9 17.6V3.8 M9 4.2l7.4 2.7L9 9.6 M3.6 19.4c1.4-1.2 4.8-1.8 8.4-1.8s7 .6 8.4 1.8 M15.4 17.2h.01",
+  bicycle: "M9.4 15.4a3.4 3.4 0 1 1-6.8 0 3.4 3.4 0 0 1 6.8 0Z M21.4 15.4a3.4 3.4 0 1 1-6.8 0 3.4 3.4 0 0 1 6.8 0Z M6 15.4 9.2 8.8h6.4L18 15.4 M8.4 6.4h2.4l3.4 9h-8.2 M15.6 8.8l-1.4 6.6 M15.6 8.8l-.8-2.4h1.8",
+  skate: "M6.2 4.2h4.6v6.2l5.8 2c1.7.6 2.6 1.7 2.6 3.2v.8H6.2Z M3.8 20h15.6c.8 0 1.4-.6 1.4-1.4 M8.6 16.4V20 M16.4 16.4V20 M10.8 7.2H8.6",
+  horseshoe: "M7.2 4.2C5.4 5.9 4.4 8.5 4.4 11.4c0 4.8 3.4 8.6 7.6 8.6s7.6-3.8 7.6-8.6c0-2.9-1-5.5-2.8-7.2 M7.2 4.2h2.4c-1.2 1.4-1.8 3.8-1.8 6.6 0 3.2 1.9 5.6 4.2 5.6s4.2-2.4 4.2-5.6c0-2.8-.6-5.2-1.8-6.6h2.4",
+  pint: "M6.6 4h10.8l-1.5 14.8c-.1.9-.8 1.6-1.7 1.6H9.8c-.9 0-1.6-.7-1.7-1.6Z M7.1 8.4h9.8",
+  barrel: "M7.2 3.8h9.6c1.4 2.8 1.4 13.6 0 16.4H7.2c-1.4-2.8-1.4-13.6 0-16.4Z M6.2 8.4h11.6 M6.2 15.6h11.6 M12 3.8v16.4",
 };
 
 const KIND_ICONS = {
@@ -50,8 +59,8 @@ const KIND_ICONS = {
   bar: "cocktail",
   nightclub: "dance",
   dance_studio: "dance",
-  pub: "beer",
-  brewery: "beer",
+  pub: "pint",
+  brewery: "barrel",
   biergarten: "beer",
   winery: "wine",
   cafe: "coffee",
@@ -61,18 +70,18 @@ const KIND_ICONS = {
   theater: "theatre",
   music_venue: "music",
   comedy_club: "mic",
-  historic_house: "theatre",
-  bowling_alley: "sports",
-  miniature_golf: "sports",
-  bicycle_rental: "sports",
-  horseback_riding: "sports",
-  ice_rink: "sports",
+  historic_house: "columns",
+  bowling_alley: "bowling",
+  miniature_golf: "golf",
+  bicycle_rental: "bicycle",
+  horseback_riding: "horseshoe",
+  ice_rink: "skate",
   trampoline_park: "sports",
   obstacle_course: "sports",
   pickleball_court: "sports",
-  golf_simulator: "sports",
+  golf_simulator: "golf",
 };
-const GROUP_ICONS = { food: "food", drinks: "cocktail", coffee: "coffee", culture: "theatre", play: "play" };
+const GROUP_ICONS = { food: "food", drinks: "cocktail", coffee: "coffee", culture: "columns", play: "play" };
 
 // The icon name for a place's category ("coffee_shop", "Music venue", ...).
 export function kindIcon(category = "") {

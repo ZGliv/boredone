@@ -8,7 +8,7 @@ export default function ConfirmSheet({ from, hasLink, entry, index, total, near,
   const { place, reason } = entry;
   const km = kmFrom(near, place);
   const line = [placeLine(place), km === null ? "" : distanceText(km)].filter(Boolean).join(", ");
-  const why = reasonText(reason);
+  const why = reasonText(reason, total);
   const photo = place.photo?.url && place.photo?.license ? place.photo : null;
   const last = index === total - 1;
   return (

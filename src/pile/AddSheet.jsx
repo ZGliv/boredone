@@ -26,7 +26,7 @@ export function AddSheet({ onSubmit, onClose }) {
     <Sheet title="Save" onClose={onClose} className="pile-sheet">
       <form className="pile-add" onSubmit={submit}>
         <label className="sr-only" htmlFor="pile-add-input">Link or note</label>
-        <textarea id="pile-add-input" ref={field} autoFocus rows={3} maxLength={4000} placeholder="Link or note" value={text} disabled={busy}
+        <textarea id="pile-add-input" ref={field} data-autofocus rows={3} maxLength={4000} placeholder="Link or note" value={text} disabled={busy}
           onChange={(event) => { setText(event.target.value); setError(""); }}
           onKeyDown={(event) => { if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) submit(event); }} />
         {error && <p className="pile-error" role="alert">{error}</p>}
@@ -55,7 +55,7 @@ export function CaptionSheet({ source, onSubmit, onClose }) {
       <p className="pile-from">{source}</p>
       <form className="pile-add" onSubmit={submit}>
         <label className="sr-only" htmlFor="pile-caption-input">Name or caption</label>
-        <input id="pile-caption-input" className="pile-input" autoFocus placeholder="Name or caption" value={text} disabled={busy} maxLength={2000}
+        <input id="pile-caption-input" className="pile-input" data-autofocus placeholder="Name or caption" value={text} disabled={busy} maxLength={2000}
           onChange={(event) => setText(event.target.value)} />
         <div className="pile-add-bar">
           <Button variant="text" onClick={onClose}>Keep as note</Button>

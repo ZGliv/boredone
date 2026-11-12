@@ -12,9 +12,9 @@ function openDatabase(){
   if(connection)return connection;
   let failed=false;
   const attempt=new Promise((resolve,reject)=>{
-    if(!globalThis.indexedDB){failed=true;reject(Error('This browser cannot store account memories.'));return;}
+    if(!globalThis.indexedDB){failed=true;reject(Error('Account storage not supported here'));return;}
     const request=indexedDB.open(DB_NAME,2);
-    const fail=()=>{failed=true;reject(Error('Could not open the account journal. Existing saves have not been changed.'));};
+    const fail=()=>{failed=true;reject(Error('Account journal didn’t open'));};
     request.onupgradeneeded=()=>{for(const name of STORES)if(!request.result.objectStoreNames.contains(name))request.result.createObjectStore(name);};
     request.onerror=fail;request.onblocked=fail;
     request.onsuccess=()=>{
@@ -39,7 +39,7 @@ function broadcast(owner,event='changed'){
 }
 function removalRecord(value,owner){
   if(value===undefined)return null;
-  if(!value||value.version!==1||value.owner!==owner||accountId(value.requestId)!==value.requestId||!['requested','pending','removed'].includes(value.phase)||!Number.isFinite(Date.parse(value.updatedAt)))throw Error('The account removal state could not be read. Existing saves have not been changed.');
+  if(!value||value.version!==1||value.owner!==owner||accountId(value.requestId)!==value.requestId||!['requested','pending','removed'].includes(value.phase)||!Number.isFinite(Date.parse(value.updatedAt)))throw Error('Removal status didn’t load');
   return value;
 }
 function removalError(removed=false){
@@ -57,7 +57,7 @@ async function removalTransaction(ownerId,mode,action){
     const request=stores.lifecycle.get(owner);
     request.onsuccess=()=>{try{result=action(removalRecord(request.result,owner),stores,owner);}catch(e){error=e;tx.abort();}};
     tx.oncomplete=()=>{if(mode==='readwrite')broadcast(owner,'removal');resolve(result);};
-    tx.onabort=()=>reject(error||Error('The account removal state could not be saved. Existing memories are unchanged.'));
+    tx.onabort=()=>reject(error||Error('Removal status not saved'));
     tx.onerror=()=>{};
   });
 }
@@ -67,7 +67,7 @@ export async function listAccountRemovals(){
   return new Promise((resolve,reject)=>{
     const tx=db.transaction('lifecycle','readonly'),request=tx.objectStore('lifecycle').getAll();let rows,error;
     request.onsuccess=()=>{try{rows=request.result.map(row=>removalRecord(row,accountId(row.owner))).filter(row=>row.phase!=='removed');}catch(e){error=e;tx.abort();}};
-    tx.oncomplete=()=>resolve(rows);tx.onabort=()=>reject(error||Error('Account removal progress could not be read.'));tx.onerror=()=>{};
+    tx.oncomplete=()=>resolve(rows);tx.onabort=()=>reject(error||Error('Removal status didn’t load'));tx.onerror=()=>{};
   });
 }
 export function requestAccountRemoval(owner,requestId){
@@ -80,7 +80,7 @@ export function requestAccountRemoval(owner,requestId){
 export function acceptAccountRemoval(owner,expectedRequestId,serverRequestId){
   const expected=accountId(expectedRequestId),server=accountId(serverRequestId);
   return removalTransaction(owner,'readwrite',(state,stores,owner)=>{
-    if(!state||(state.requestId!==expected&&state.requestId!==server))throw Error('This account removal changed in another tab. Reload before continuing.');
+    if(!state||(state.requestId!==expected&&state.requestId!==server))throw Error('Changed in another tab');
     if(state.phase==='removed')return state;
     const next={...state,requestId:server,phase:'pending',updatedAt:new Date().toISOString()};stores.lifecycle.put(next,owner);return next;
   });
@@ -88,7 +88,7 @@ export function acceptAccountRemoval(owner,expectedRequestId,serverRequestId){
 export function eraseAccountJournal(owner,requestId){
   const expected=accountId(requestId);
   return removalTransaction(owner,'readwrite',(state,stores,owner)=>{
-    if(!state||state.requestId!==expected)throw Error('A matching removal confirmation is required. Existing memories are unchanged.');
+    if(!state||state.requestId!==expected)throw Error('Type DELETE to remove');
     if(state.phase==='removed')return state;
     const range=IDBKeyRange.bound([owner,''],[owner,'\uffff']);
     stores.accounts.delete(owner);stores.photos.delete(range);stores.drafts.delete(range);
@@ -97,7 +97,7 @@ export function eraseAccountJournal(owner,requestId){
 }
 export function createAccountJournal(ownerId){
   const owner=accountId(ownerId),transactions=new Set();let closed=false;
-  function assertActive(){if(closed)throw Error('This account session has ended. Reopen the journal after signing in.');}
+  function assertActive(){if(closed)throw Error('Signed out. Sign in again');}
   const scopeRange=()=>IDBKeyRange.bound([owner,''],[owner,'\uffff']);
   async function transaction(mode,action,notify=true){
     assertActive();const db=await openDatabase();assertActive();
@@ -129,7 +129,7 @@ export function createAccountJournal(ownerId){
     // them. Cloud cleanup is a separate Storage API lifecycle, never this delete.
     const used=references(state);
     state.assets=state.assets.filter(a=>used.has(a.id));
-    if(state.assets.reduce((n,a)=>n+a.byteSize,0)>PHOTO_LIMIT)throw Error('This account cache has reached its 50 MB photo limit. Existing memories are unchanged.');
+    if(state.assets.reduce((n,a)=>n+a.byteSize,0)>PHOTO_LIMIT)throw Error('Photos full at 50 MB');
     for(const asset of previous.assets)if(!used.has(asset.id))stores.photos.delete([owner,asset.id]);
     stores.accounts.put(state,owner);
   }
@@ -137,7 +137,7 @@ export function createAccountJournal(ownerId){
     const files=new Map();if(!ids.length){done(files);return;}
     let remaining=ids.length;
     for(const id of ids){const request=stores.photos.get([owner,id]);request.onsuccess=()=>{
-      try{const dataUrl=request.result;if(typeof dataUrl!=='string')throw Error('A saved account photo is missing. No records have been changed.');photoBytes(dataUrl);files.set(id,dataUrl);if(--remaining===0)done(files);}catch(e){abort(e);}
+      try{const dataUrl=request.result;if(typeof dataUrl!=='string')throw Error('A photo is missing');photoBytes(dataUrl);files.set(id,dataUrl);if(--remaining===0)done(files);}catch(e){abort(e);}
     };}
   }
   const rawSnapshot=()=>transaction('readonly',(state,stores,done,abort)=>{
@@ -156,7 +156,7 @@ export function createAccountJournal(ownerId){
   async function save(outings,expectedRevision,{draftId,draftStamp,preserveCalendarDates=false}={}){
     assertActive();const input=structuredClone(outings),snapshot=await rawSnapshot();assertActive();
     const safe=input.map(o=>canonicalAccountOuting(o,preserveCalendarDates||snapshot.state.records.find(r=>r.id===o.id)?.desired?.payload.visitDate===o.visitDate));
-    if(snapshot.state.revision!==expectedRevision)throw Error('This account journal changed in another tab. Reload before saving.');
+    if(snapshot.state.revision!==expectedRevision)throw Error('Changed in another tab');
     const byData=new Map(snapshot.state.assets.map(a=>[snapshot.files.get(a.id),a])),byId=new Map(snapshot.state.assets.map(a=>[a.id,a])),newFiles=new Map(),entries=[];
     for(const outing of safe){
       const ids=[],prior=snapshot.state.records.find(r=>r.id===outing.id)?.desired;
@@ -169,7 +169,7 @@ export function createAccountJournal(ownerId){
       entries.push(contentFromOuting(outing,ids,true));
     }
     return transaction('readwrite',(state,stores,done)=>{
-      if(state.revision!==expectedRevision)throw Error('This account journal changed in another tab. Reload before saving.');
+      if(state.revision!==expectedRevision)throw Error('Changed in another tab');
       // Snapshot assets may have been pruned by an acknowledgement during hashing.
       const assets=[...new Set(entries.flatMap(e=>e.content.photoIds))].map(id=>byId.get(id));
       const next=saveDesired(state,entries,assets);
@@ -184,7 +184,7 @@ export function createAccountJournal(ownerId){
     assertActive();const incoming=outings.map(o=>canonicalAccountOuting(o,true)),seen=new Set();
     for(const outing of incoming){if(seen.has(outing.id))throw Error('The imported journal contains duplicate visit IDs.');seen.add(outing.id);}
     const current=await read();assertActive();
-    if(current.revision!==expectedRevision)throw Error('This account journal changed. Reload before importing.');
+    if(current.revision!==expectedRevision)throw Error('Changed in another tab');
     const retired=new Set(await transaction('readonly',(state,_stores,done)=>done(state.records.filter(r=>!r.desired&&(r.base||r.job)).map(r=>r.id))));
     const merged=[...current.outings],existing=new Map(merged.map(o=>[o.id,o]));
     let added=0,copies=0,alreadyHere=0;
@@ -217,7 +217,7 @@ export function createAccountJournal(ownerId){
       if(seen.has(expected.id)||!remote.content?.photoIds.includes(expected.id))throw Error('Unexpected downloaded photo.');
       seen.add(expected.id);
       const actual=await describePhoto(file.dataUrl,expected.id);assertActive();
-      if(!sameContent(actual,expected))throw Error('A downloaded photo failed its integrity check. Existing memories are unchanged.');
+      if(!sameContent(actual,expected))throw Error('A photo didn’t download');
       verified.push({...expected,dataUrl:file.dataUrl,verified:true});
     }
     return transaction('readwrite',(state,stores,done,abort)=>{
@@ -266,7 +266,7 @@ export function createAccountJournal(ownerId){
     state.cleanup=(state.cleanup||[]).filter(candidate=>candidate!==id);stores.accounts.put(state,owner);done();
   },false);
   const resolve=(id,choice,expectedRevision)=>transaction('readwrite',(state,stores,done)=>{
-    if(state.revision!==expectedRevision)throw Error('This account journal changed. Reload before resolving the conflict.');
+    if(state.revision!==expectedRevision)throw Error('Changed in another tab');
     const next=resolveConflict(state,id,choice);putState(next,state,stores);done(summary(next));
   });
   const writeDraft=record=>{
@@ -274,16 +274,16 @@ export function createAccountJournal(ownerId){
     return transaction('readwrite',(_state,stores,done,abort)=>{
       const request=stores.drafts.getAll(scopeRange());request.onsuccess=()=>{try{
         const existing=request.result.find(r=>r.id===safe.id);
-        if(existing&&existing.savedAt!==record.previousSavedAt)throw Error('This draft changed in another tab. Keep your version open.');
+        if(existing&&existing.savedAt!==record.previousSavedAt)throw Error('Changed in another tab');
         const others=request.result.filter(r=>r.id!==safe.id);
-        if(others.length>=10||new Blob([JSON.stringify([...others,safe])]).size>PHOTO_LIMIT)throw Error('Unfinished outings are full. Save or discard an earlier draft.');
+        if(others.length>=10||new Blob([JSON.stringify([...others,safe])]).size>PHOTO_LIMIT)throw Error('10 drafts max');
         stores.drafts.put(safe,[owner,safe.id]);done(safe);
       }catch(e){abort(e);}};
     });
   };
   const deleteDraft=(id,stamp)=>transaction('readwrite',(_state,stores,done,abort)=>{
     const request=stores.drafts.get([owner,id]);request.onsuccess=()=>{
-      if(request.result&&request.result.savedAt!==stamp){abort(Error('This draft changed in another tab.'));return;}
+      if(request.result&&request.result.savedAt!==stamp){abort(Error('Changed in another tab'));return;}
       stores.drafts.delete([owner,id]);done();
     };
   });

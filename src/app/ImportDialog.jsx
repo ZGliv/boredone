@@ -6,8 +6,8 @@ export default function ImportDialog({ account, importing, importBusy, storageEr
     <Sheet title="Import backup" onClose={importBusy ? () => {} : onClose} className="import-sheet">
       <p className="import-facts t-tab">
         {account?.owner
-          ? `${importing.count} records. Different versions are kept as copies.`
-          : `${importing.count} records: ${importing.added} new, ${importing.updated} updated`}
+          ? `${importing.count} to merge`
+          : `${importing.added} new · ${importing.updated} updated`}
       </p>
       {storageError && <p className="page-status" role="alert">{storageError}</p>}
       <div className="confirm-actions">
