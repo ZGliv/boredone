@@ -4,6 +4,32 @@ Written 11 November 2026. This is the forward plan. Where it conflicts with olde
 
 Figures marked *(check)* came from third-party pages during research and should be confirmed before money depends on them.
 
+## Status — 11 November 2026, end of Wave 1
+
+App Store packaging is deferred until the product is good (Zack, 11 Nov). A "complete this city" game is now a core feature, built as honest progress and finishable sets with no XP, streaks or leaderboards.
+
+**Built, reviewed, merged to `main`, 469 tests passing. None of it is on screen yet and nothing is deployed.**
+
+| Piece | Where | What it does |
+|---|---|---|
+| App split | `src/app/`, `src/pages/` | `main.jsx` went from 884 lines to 15; screens can now be changed independently |
+| Saves ("the Pile") | `src/saves.js`, `src/model.js`, new migration in `supabase/migrations/` | A save is an outing with status `saved`; syncs through the existing engine. **The migration is not applied to the hosted database yet** |
+| Resolver | `src/saveSource.js`, `src/saveMatch.js`, `server/resolve-save.js` | Link + text → venue candidates → match against the city's places. Never fetches social sites. Needs `ANTHROPIC_API_KEY` |
+| Tonight's Three | `src/decide.js` | Three picks with truthful reasons; saves first; "tonight" runs to 5 am |
+| City packs | `scripts/city-pack/`, `data/city-packs/` | Any city from Overture Maps open data in about 20–40 s. Built: Pittsburgh 5 km (1,622 places), Pittsburgh metro 20 km (5,016), Columbus (2,386) |
+| Events | `server/events/` | Ticketmaster, iCal and website event markup. Needs `TICKETMASTER_API_KEY` |
+| City board | `src/cityBoard.js` | Progress per city, neighbourhood and kind; finishable sets; milestones; survives venue closures and data updates |
+| Whole-loop test | `test/integration-loop.test.js` | Save → resolve → decide → done → board, on real Pittsburgh data |
+
+**Known limits, stated plainly**
+
+- Events cover maybe 10–25% of a real Pittsburgh Friday, nearly all of it Ticketmaster's big venues. Bar trivia, DJ nights, pop-ups and markets are not in any feed. The user's own saves are the better source for those, which is the point of the product.
+- The open place data has some duplicates and a few non-venues (promoters, a radio station), and 19% of old-guide venues still do not pair with a pack record by name.
+- With no saves and no location, Tonight's Three is close to "nearest places". It gets good when the Pile has things in it.
+- The resolve endpoint's abuse protection is basic (per-server throttle). It needs sign-in in front of it before public use.
+
+**Next: Wave 2, the screens** — Pile, "Is this the place?" card, Tonight's Three, City Board — in the design direction Zack picks from `output/design-wave1/`.
+
 ---
 
 ## 1. The honest starting point
