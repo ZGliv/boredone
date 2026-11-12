@@ -3,12 +3,12 @@ import { Icon, Row, Sheet } from "../ui";
 
 // "Pittsburgh ⌄". Lists the city packs that exist; picking one switches the
 // Map, Board and picks together.
-export default function CitySwitcher({ cities, cityId, onChange, className = "" }) {
+export default function CitySwitcher({ cities, cityId, onChange, onOpen, className = "" }) {
   const [open, setOpen] = useState(false);
   const current = cities.find((city) => city.id === cityId);
   return (
     <>
-      <button type="button" className={`city-switcher ${className}`} aria-haspopup="dialog" onClick={() => setOpen(true)}>
+      <button type="button" className={`city-switcher ${className}`} aria-haspopup="dialog" onClick={() => { setOpen(true); onOpen?.(); }}>
         <span>{current?.name}</span><Icon name="down" size={18} />
       </button>
       {open && (

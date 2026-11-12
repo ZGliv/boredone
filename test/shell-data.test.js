@@ -85,3 +85,10 @@ test('routes land old links on the new tabs and the switcher lists every pack', 
   assert.equal(pageFromHash('#settings'), 'settings');
   assert.deepEqual(CITY_PACKS.map(p => p.id), ['pittsburgh', 'pittsburgh-metro', 'columbus']);
 });
+
+test('each city pack lists its own centre, so the map can fly there before the places load', () => {
+  for (const meta of CITY_PACKS) {
+    const data = read(`../data/city-packs/${meta.id}.json`);
+    assert.deepEqual(meta.center, data.center, meta.id);
+  }
+});

@@ -51,13 +51,13 @@ export default function useCityData(outings) {
   const states = useMemo(() => placeStates(places, outings), [places, outings]);
   const progress = useMemo(() => (current.board ? boardProgress(current.board, outings) : null), [current.board, outings]);
   return {
-    cities: CITY_PACKS.map(({ id, name }) => ({ id, name })),
+    cities: CITY_PACKS.map(({ id, name, center }) => ({ id, name, center })),
     cityId,
     setCityId,
     status: data.id === cityId ? data.status : "loading",
     error: data.id === cityId ? data.error : "",
     retry: () => setAttempt((n) => n + 1),
-    city: current.pack || { id: cityId, name: packById(cityId).name },
+    city: current.pack || { id: cityId, name: packById(cityId).name, center: packById(cityId).center },
     board: current.board || null,
     places,
     placeById,

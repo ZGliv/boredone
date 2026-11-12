@@ -10,7 +10,7 @@ const c = MAP_COLORS;
 // Labels are drawn in the browser from the app's own bundled Instrument Sans
 // (no glyphs URL: MapLibre then rasterises each letter locally), so the map
 // fetches no fonts and shows no third type family.
-const LABEL_FONT = ["Instrument Sans Variable"];
+export const LABEL_FONT = ["Instrument Sans Variable"];
 export function worldStyle() {
   return {
     version: 8,
