@@ -11,6 +11,7 @@
     "test:db": "node --test test/database/*.test.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "1.8.0",
     "@mapbox/vector-tile": "^3.0.0",
     "@supabase/supabase-js": "2.119.0",
     "leaflet": "1.9.4",
