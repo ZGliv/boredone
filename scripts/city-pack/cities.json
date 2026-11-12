@@ -1,0 +1,8 @@
+{
+  "release": "2026-10-21.0",
+  "cities": [
+    {"slug": "pittsburgh", "name": "Pittsburgh", "guide": "src/data/pittsburgh.json"},
+    {"slug": "pittsburgh-metro", "name": "Pittsburgh metro", "center": {"lat": 40.44, "lng": -80}, "radiusKm": 20},
+    {"slug": "columbus", "name": "Columbus, OH", "center": {"lat": 39.9612, "lng": -82.9988}, "radiusKm": 10}
+  ]
+}
