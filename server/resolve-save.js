@@ -57,6 +57,20 @@ const weekday = date => new Date(date + 'T12:00:00Z').toLocaleDateString('en-US'
 const dayShift = (date, n) => new Date(Date.parse(date + 'T00:00:00Z') + n * 86400000).toISOString().slice(0,10);
 // At least three letters in any script; "🔥🔥" or "!!!" is not something to resolve.
 export const usableText = value => (clean(value).match(/\p{L}/gu) || []).length >= 3;
+// A Maps place or an account link names the thing saved. The @handle on a
+// video or story link names whoever posted it, usually a creator, so a link
+// like that with no words still needs a few words from the user.
+const linkNamesIt = link => ['place','search','profile'].includes(link.kind);
+// Letters and digits only, accents dropped: "Café Lola" ~ "@cafelola".
+const bare = value => fold(value).normalize('NFKD').replace(/\p{M}/gu,'');
+const STOP = new Set(['the','and','los','las','les','der','die','das','del','della']);
+// A name is grounded when one of its own words (three letters or more) is in
+// the quoted words. Without this, any name could ride on evidence like "the".
+function grounded(name, words) {
+ const tokens = bare(name).split(/[^\p{L}\p{N}]+/u).filter(t => t.length >= 3 && !STOP.has(t));
+ const haystack = bare(words).replace(/[^\p{L}\p{N}]+/gu,'');
+ return tokens.length ? tokens.some(t => haystack.includes(t)) : !!bare(name).replace(/[^\p{L}\p{N}]+/gu,'') && haystack.includes(bare(name).replace(/[^\p{L}\p{N}]+/gu,''));
+}
 
 export function resolveInput(body, {now = Date.now()} = {}) {
  if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).some(k => !['url','text','near','today'].includes(k))) throw new ResolveError(400, 'invalid_request');
@@ -74,11 +88,14 @@ export function resolveInput(body, {now = Date.now()} = {}) {
  const today = isIsoDate(body.today) && Math.abs(Date.parse(body.today) - Date.parse(serverToday)) <= 86400000 ? body.today : serverToday;
  const share = splitShare(body.url || '', body.text || '');
  const raw = share.text.trim();
- return {url: share.url, link: parseSaveUrl(share.url), text: raw.slice(0, MAX_TEXT), truncated: raw.length > MAX_TEXT, near, today};
+ // Never cut an emoji or other astral character in half at the cap.
+ const text = raw.slice(0, MAX_TEXT).replace(/[\ud800-\udbff]$/, '');
+ return {url: share.url, link: parseSaveUrl(share.url), text, truncated: raw.length > MAX_TEXT, near, today};
 }
 
 export function buildRequest(input, model) {
- const hint = input.link.hint ? `\n${input.link.app === 'google-maps' ? 'Google Maps place in the link' : 'Account in the link'}: ${input.link.hint}` : '';
+ const label = input.link.app === 'google-maps' ? 'Google Maps place in the link' : input.link.kind === 'profile' ? 'Account in the link' : 'Account that posted it (often a creator, not the venue)';
+ const hint = input.link.hint ? `\n${label}: ${input.link.hint}` : '';
  // The closing tag cannot appear inside the data, so the data cannot end the
  // block early and pose as instructions.
  const data = (input.text + hint).replace(/<\/?\s*shared_text\s*>/gi, ' ');
@@ -101,7 +118,7 @@ export function checkCandidates(raw, input) {
  for (const c of Array.isArray(raw?.candidates) ? raw.candidates : []) {
   if (!c || typeof c !== 'object' || out.length >= 5) continue;
   const name = clean(c.name).replace(/\s+/g,' ').trim().slice(0, 120), evidence = clean(c.evidence).replace(/\s+/g,' ').trim().slice(0, 300);
-  if (!name || !evidence || !material.includes(fold(evidence))) continue;
+  if (!name || !evidence || !material.includes(fold(evidence)) || !grounded(name, evidence)) continue;
   const kind = KINDS.includes(c.kind) ? c.kind : 'event';
   const key = fold(name) + '|' + kind;
   if (seen.has(key)) continue;
@@ -112,7 +129,9 @@ export function checkCandidates(raw, input) {
   let expiresAt = date(c.expiresAt);
   if (expiresAt && eventDate && expiresAt < eventDate) expiresAt = '';
   const confidence = Number.isFinite(c.confidence) ? Math.round(Math.min(1, Math.max(0, c.confidence)) * 100) / 100 : 0;
-  out.push({name, venue: clean(c.venue).trim().slice(0, 120), city: clean(c.city).trim().slice(0, 100), kind, eventDate, expiresAt, confidence, evidence});
+  // The venue the matcher will look up must also come from the words supplied.
+  const venue = clean(c.venue).replace(/\s+/g,' ').trim().slice(0, 120);
+  out.push({name, venue: venue && grounded(venue, material) ? venue : '', city: clean(c.city).trim().slice(0, 100), kind, eventDate, expiresAt, confidence, evidence});
  }
  return out;
 }
@@ -143,7 +162,7 @@ export function createResolver({env = process.env, callModel = null, now = Date.
  return async body => {
   const input = resolveInput(body, {now: now()});
   const link = {app: input.link.app, kind: input.link.kind, url: input.link.canonicalUrl};
-  if (!usableText(input.text) && !usableText(input.link.hint)) return {status: 'needs-text', link, candidates: []};
+  if (!usableText(input.text) && !(linkNamesIt(input.link) && usableText(input.link.hint))) return {status: 'needs-text', link, candidates: []};
   if (!callModel && !env.ANTHROPIC_API_KEY) throw new ResolveError(503, 'resolver_not_configured', 'The save resolver has no Anthropic API key. Set ANTHROPIC_API_KEY on the server.');
   const params = buildRequest(input, env.BOREDONE_RESOLVER_MODEL || DEFAULT_MODEL);
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), TIMEOUT_MS);

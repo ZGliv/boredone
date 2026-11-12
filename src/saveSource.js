@@ -37,7 +37,7 @@ function instagram(url) {
   return {app:'instagram',kind,id,canonicalUrl:`https://www.instagram.com/${parts[at]==='reels'?'reel':parts[at]}/${id}/`,hint:''};
  }
  if (share && safeId(parts[0])) return {app:'instagram',kind:'share',id:parts[0],canonicalUrl:`https://www.instagram.com/share/${parts[0]}/`,hint:''};
- const reserved = ['explore','stories','accounts','direct','about','legal','developer','web'];
+ const reserved = ['explore','stories','accounts','direct','about','legal','developer','web','p','reel','reels','tv','share'];
  if (parts.length && /^[A-Za-z0-9_.]{1,30}$/.test(parts[0]) && !reserved.includes(parts[0])) {
   if (parts[1] === 'stories' || p[0] === 'stories') return {app:'instagram',kind:'story',id:'',canonicalUrl:'',hint:''};
   return {app:'instagram',kind:'profile',id:parts[0],canonicalUrl:`https://www.instagram.com/${parts[0]}/`,hint:'@'+parts[0]};
@@ -119,6 +119,10 @@ export function splitShare(url = '', text = '') {
 
 const DAYS = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'];
 const MONTHS = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+// Whole day and month names or their usual abbreviations only: "sunny",
+// "satisfying", "mayor" or "marching" are not dates.
+const WEEKDAY = '(sun(?:day)?|mon(?:day)?|tue(?:s|sday)?|wed(?:nesday)?|thu(?:r|rs|rsday)?|fri(?:day)?|sat(?:urday)?)';
+const MONTH = '(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)';
 const iso = date => date.toISOString().slice(0,10);
 const utcDay = value => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || ''); if (!m) return null; const d = new Date(Date.UTC(+m[1], +m[2]-1, +m[3])); return iso(d) === value ? d : null; };
 export const isIsoDate = value => !!utcDay(value);
@@ -136,7 +140,7 @@ export function resolveDatePhrase(phrase, today) {
  if (/^(today|tonight|this evening)$/.test(text)) return iso(base);
  if (/^tomorrow( night)?$/.test(text)) return iso(addDays(base,1));
  if (/^this weekend$/.test(text)) { const d = base.getUTCDay(); return iso(addDays(base, d === 6 || d === 0 ? 0 : 6 - d)); }
- const day = text.match(/^(this |next |on |coming )?(sun|mon|tue|tues|wed|thu|thur|thurs|fri|sat)[a-z]*( night)?$/);
+ const day = text.match(new RegExp(`^(this |next |on |coming )?${WEEKDAY}( night)?$`));
  if (day) {
   const target = DAYS.findIndex(d => d.startsWith(day[2].slice(0,3)));
   let delta = (target - base.getUTCDay() + 7) % 7;
@@ -145,9 +149,9 @@ export function resolveDatePhrase(phrase, today) {
   if (day[1] === 'next ') { if (delta === 0) delta = 7; else return ''; }
   return iso(addDays(base, delta));
  }
- let m = text.match(/^(?:(?:sun|mon|tue|wed|thu|fri|sat)[a-z]* )?([a-z]{3,9}) (\d{1,2})(?:st|nd|rd|th)?(?: (\d{4}))?$/) || null, month, date, year;
- if (m && MONTHS.includes(m[1].slice(0,3))) { month = MONTHS.indexOf(m[1].slice(0,3)); date = +m[2]; year = m[3] ? +m[3] : null; }
- else if ((m = text.match(/^(\d{1,2})(?:st|nd|rd|th)? (?:of )?([a-z]{3,9})(?: (\d{4}))?$/)) && MONTHS.includes(m[2].slice(0,3))) { month = MONTHS.indexOf(m[2].slice(0,3)); date = +m[1]; year = m[3] ? +m[3] : null; }
+ let m = text.match(new RegExp(`^(?:${WEEKDAY} )?${MONTH} (\\d{1,2})(?:st|nd|rd|th)?(?: (\\d{4}))?$`)) || null, month, date, year;
+ if (m) { month = MONTHS.indexOf(m[2].slice(0,3)); date = +m[3]; year = m[4] ? +m[4] : null; }
+ else if ((m = text.match(new RegExp(`^(\\d{1,2})(?:st|nd|rd|th)? (?:of )?${MONTH}(?: (\\d{4}))?$`)))) { month = MONTHS.indexOf(m[2].slice(0,3)); date = +m[1]; year = m[3] ? +m[3] : null; }
  else if ((m = text.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?$/))) { month = +m[1]-1; date = +m[2]; year = m[3] ? +m[3] : null; }
  else return '';
  const y = year ?? base.getUTCFullYear();

@@ -32,23 +32,30 @@ function editDistance(a, b) {
  return prev[b.length];
 }
 const ratio = (a, b) => !a || !b ? 0 : 1 - editDistance(a, b) / Math.max(a.length, b.length);
-const tokenMatch = (a, b) => a === b || (a.length >= 4 && b.length >= 4 && ratio(a, b) >= .75);
+// One typo is tolerated in a word of six letters or more. Shorter words are
+// different words after one edit ("taco"/"tako", "lucha"/"lucia").
+const TYPO = .82;
+const tokenMatch = (a, b) => a === b || (a.length >= 5 && b.length >= 5 && ratio(a, b) >= TYPO);
 
-// 0..1: how likely two venue names refer to the same venue.
+// 0..1: how likely a candidate name `a` (from a caption) refers to the place
+// named `b`. Not symmetric: a caption may give part of a place's name
+// ("Condado" for "Condado Tacos"), but a caption name with a distinctive word
+// the place lacks ("Pizza Milano" vs "Cafe Milano") is a different place.
 export function nameSimilarity(a, b) {
  const ka = nameKey(a), kb = nameKey(b);
  if (!ka || !kb) return 0;
  if (ka === kb) return 1;
- const joined = ratio(ka.replace(/ /g,''), kb.replace(/ /g,''));
+ const whole = ratio(ka.replace(/ /g,''), kb.replace(/ /g,'')), joined = whole >= TYPO ? whole : 0;
  const ta = ka.split(' '), tb = kb.split(' ');
  const hitA = ta.filter(t => tb.some(u => tokenMatch(t, u))).length, hitB = tb.filter(t => ta.some(u => tokenMatch(t, u))).length;
  // Every distinctive word of the shorter name appears in the longer one:
  // "Primanti's" vs "Primanti Bros.". Weighted by how much of the longer name
  // is covered so "Fernando's" does not swallow "Fernando's Cafe & Grill Annex".
- const [short, long, hits] = ta.length <= tb.length ? [ta, tb, hitA] : [tb, ta, hitB];
+ // Only the caption's name may be the shorter one.
+ const [short, long, hits] = [ta, tb, hitA];
  // A single short word ("Yard") inside a long name is too weak to count.
  const strong = short.length >= 2 ? short.join('').length >= 6 : short[0].length >= 5 && long.length <= 2;
- const contained = hits === short.length && strong ? .78 + .2 * (short.length / long.length) : 0;
+ const contained = short.length <= long.length && hits === short.length && strong ? .78 + .2 * (short.length / long.length) : 0;
  const dice = (hitA + hitB) / (ta.length + tb.length);
  return Math.min(1, Math.max(joined, contained, dice * .95));
 }
@@ -77,9 +84,18 @@ const MAX_MATCHES = 12;
 export function matchCandidates(candidates = [], places = [], near = null) {
  const origin = hasPoint(near) ? near : null;
  const pool = (Array.isArray(places) ? places : []).filter(p => p && typeof p.name === 'string' && p.name.trim());
+ let poolKeys = null;
  return (Array.isArray(candidates) ? candidates : []).map(candidate => {
   const label = candidate?.kind === 'event' && candidate?.venue ? candidate.venue : candidate?.venue || candidate?.name;
-  if (!label || !nameKey(label)) return {candidate, matches: [], ambiguous: false};
+  const labelKey = label ? nameKey(label) : '';
+  if (!labelKey) return {candidate, matches: [], ambiguous: false};
+  // One word that several different businesses share ("Pizza", "Sushi",
+  // "Tacos") is a category, not a name. Branches of one chain share a whole
+  // name, so they count once.
+  if (!labelKey.includes(' ')) {
+   poolKeys ||= [...new Set(pool.map(p => nameKey(p.name)))];
+   if (!poolKeys.includes(labelKey) && poolKeys.filter(k => k.split(' ').some(t => tokenMatch(labelKey, t))).length > 1) return {candidate, matches: [], ambiguous: false};
+  }
   const scored = [];
   for (const place of pool) {
    const name = nameSimilarity(label, place.name);
