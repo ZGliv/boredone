@@ -7,6 +7,18 @@ import { resolveTimeZone, zonedToMs, isoInZone, isoWithOffset, validDate } from 
 export function unfold(text) {
   return String(text).replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").replace(/\n[ \t]/g, "");
 }
+// RFC 5545 3.1: a fold may fall inside a multi-octet UTF-8 character, so feeds fetched
+// as bytes are unfolded before they are decoded.
+export function decodeICal(bytes) {
+  const b = Buffer.from(bytes), out = Buffer.alloc(b.length);
+  let n = 0;
+  for (let i = 0; i < b.length; i++) {
+    if (b[i] === 13 && b[i + 1] === 10 && (b[i + 2] === 32 || b[i + 2] === 9)) { i += 2; continue; }
+    if (b[i] === 10 && (b[i + 1] === 32 || b[i + 1] === 9)) { i += 1; continue; }
+    out[n++] = b[i];
+  }
+  return new TextDecoder().decode(out.subarray(0, n));
+}
 export function unescapeText(value) {
   return String(value).replace(/\\([\\;,nN])/g, (_, c) => (c === "n" || c === "N" ? "\n" : c));
 }
@@ -78,17 +90,25 @@ export function parseRrule(value) {
   return { freq: rule.FREQ, interval, count, until: rule.UNTIL || null, byday: byday && byday.map(d => DAYS[d]), wkst: DAYS[rule.WKST || "MO"] };
 }
 const MAX_STEPS = 5000;
+const dayNumber = wall => Date.UTC(wall.y, wall.mo - 1, wall.d) / 86400000;
 // Yields wall-clock starts in order, starting with DTSTART itself (RFC 5545: DTSTART is always the first instance).
-function* occurrences(start, rule) {
+// skipToDay (a UTC day number) jumps whole periods ahead, so a series that began years ago
+// reaches the window without walking, or being cut off by MAX_STEPS. Only safe without COUNT.
+function* occurrences(start, rule, skipToDay = -Infinity) {
+  const first = dayNumber(start.wall);
   if (rule.freq === "DAILY") {
-    for (let i = 0, wall = start.wall; i < MAX_STEPS; i++, wall = addDays(start.wall, i * rule.interval))
+    const i0 = Math.max(0, Math.floor((skipToDay - first) / rule.interval));
+    for (let i = i0; i < i0 + MAX_STEPS; i++) {
+      const wall = addDays(start.wall, i * rule.interval);
       if (!rule.byday || rule.byday.includes(weekday(wall)) || i === 0) yield wall;
+    }
     return;
   }
   const days = rule.byday || [weekday(start.wall)];
   const weekStart = addDays(start.wall, -((weekday(start.wall) - rule.wkst + 7) % 7));
-  yield start.wall;
-  for (let week = 0; week < MAX_STEPS / 7; week += rule.interval)
+  const w0 = Math.max(0, Math.floor((skipToDay - dayNumber(weekStart)) / 7 / rule.interval) * rule.interval);
+  if (w0 === 0) yield start.wall;
+  for (let week = w0; week < w0 + MAX_STEPS / 7; week += rule.interval)
     for (let i = 0; i < 7; i++) {
       const wall = addDays(weekStart, week * 7 + i);
       if (!days.includes(weekday(wall))) continue;
@@ -175,8 +195,17 @@ export function parseICal(text, { from, to, timeZone = "", sourceUrl = "", sourc
     if (!rule) { emit(instance(start.wall)); continue; }
     const limit = rule.until ? untilMs(rule.until, start) : null;
     if (rule.until && limit === null) { count("unsupportedRule"); continue; }
+    // Instances whose wall date is two days or more before the window (less the event's length)
+    // cannot overlap it, so they are only counted, never converted through Intl (which is slow).
+    const spanDays = !span ? 0 : span.exactMs !== undefined ? span.exactMs / 86400000 : span.days + span.seconds / 86400;
+    const fromDay = Number.isFinite(from) ? Math.floor(from / 86400000 - spanDays) - 2 : -Infinity;
     let n = 0, finished = false;
-    for (const wall of occurrences(start, rule)) {
+    for (const wall of occurrences(start, rule, rule.count === null ? fromDay : -Infinity)) {
+      if (dayNumber(wall) < fromDay) {
+        if (rule.count !== null && n >= rule.count) { finished = true; break; }
+        n++;
+        continue;
+      }
       const inst = instance(wall);
       if (limit !== null && inst.ms > limit) { finished = true; break; }
       if (rule.count !== null && n >= rule.count) { finished = true; break; }

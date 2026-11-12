@@ -99,7 +99,8 @@ export function isPrivateAddress(address) {
   const mapped = ip.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
   if (mapped) return privateV4(mapped[1]);
   if (/^::ffff:/.test(ip)) return true;
-  return ip === "::" || ip === "::1" || /^f[cd]/.test(ip) || /^fe[89ab]/.test(ip) || /^ff/.test(ip) || /^64:ff9b:/.test(ip) || /^2001:db8:/.test(ip);
+  // "::" prefix covers ::, ::1 and IPv4-compatible forms such as ::7f00:1.
+  return /^::/.test(ip) || /^f[cd]/.test(ip) || /^fe[89ab]/.test(ip) || /^ff/.test(ip) || /^64:ff9b:/.test(ip) || /^2001:db8:/.test(ip);
 }
 export async function checkPublicUrl(raw, lookup = dnsLookup) {
   let url;
@@ -107,7 +108,7 @@ export async function checkPublicUrl(raw, lookup = dnsLookup) {
   if (!["http:", "https:"].includes(url.protocol)) throw new Error("Only http and https are allowed");
   if (url.username || url.password) throw new Error("Credentials in URLs are not allowed");
   if (url.port && !["80", "443"].includes(url.port)) throw new Error("Non-standard ports are not allowed");
-  const host = url.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  const host = url.hostname.replace(/^\[|\]$/g, "").replace(/\.$/, "").toLowerCase();
   if (!host || host === "localhost" || /\.(localhost|local|internal|home|lan)$/.test(host) || (!isIP(host) && !host.includes("."))) throw new Error("Private address");
   if (isIP(host)) { if (isPrivateAddress(host)) throw new Error("Private address"); return url; }
   const addresses = await lookup(host, { all: true });
@@ -135,10 +136,11 @@ export function robotsAllows(robotsText, path, agent = "boredone") {
   }
   return !best || best.allow;
 }
-async function readCapped(response, maxBytes, controller) {
+const utf8 = bytes => new TextDecoder().decode(bytes);
+async function readCapped(response, maxBytes, controller, decode = utf8) {
   const declared = Number(response.headers.get("content-length"));
   if (declared > maxBytes) { controller.abort(); throw new Error("Response too large"); }
-  if (!response.body?.getReader) { const text = await response.text(); if (Buffer.byteLength(text) > maxBytes) throw new Error("Response too large"); return text; }
+  if (!response.body?.getReader) { const bytes = Buffer.from(await response.text()); if (bytes.length > maxBytes) throw new Error("Response too large"); return decode(bytes); }
   const reader = response.body.getReader(), chunks = [];
   let size = 0;
   for (;;) {
@@ -148,14 +150,16 @@ async function readCapped(response, maxBytes, controller) {
     if (size > maxBytes) { controller.abort(); reader.cancel().catch(() => {}); throw new Error("Response too large"); }
     chunks.push(value);
   }
-  return new TextDecoder().decode(Buffer.concat(chunks.map(c => Buffer.from(c))));
+  return decode(Buffer.concat(chunks.map(c => Buffer.from(c))));
 }
+const REDIRECTS = [301, 302, 303, 307, 308];
 /**
- * fetchPublic(url, { fetcher, lookup, timeoutMs, maxBytes, accept, robotsCache, clock })
+ * fetchPublic(url, { fetcher, lookup, timeoutMs, maxBytes, accept, robotsCache, clock, decode })
  * GET a public page: http(s) only, no private/loopback targets (checked on every redirect),
- * robots.txt honoured, hard timeout and byte cap. Resolves to { url, text, contentType }.
+ * robots.txt honoured, hard timeout and byte cap. decode turns the body bytes into text.
+ * Resolves to { url, text, contentType }.
  */
-export async function fetchPublic(raw, { fetcher = fetch, lookup = dnsLookup, timeoutMs = 8000, maxBytes = 1_500_000, accept = /^(text\/html|application\/xhtml\+xml)/i, robotsCache = new Map(), clock = Date.now } = {}) {
+export async function fetchPublic(raw, { fetcher = fetch, lookup = dnsLookup, timeoutMs = 8000, maxBytes = 1_500_000, accept = /^(text\/html|application\/xhtml\+xml)/i, robotsCache = new Map(), clock = Date.now, decode = utf8 } = {}) {
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(new Error("Timed out")), timeoutMs);
   const get = (url, extra = {}) => fetcher(url, { signal: controller.signal, redirect: "manual", headers: { "User-Agent": USER_AGENT, ...extra } });
   try {
@@ -165,14 +169,20 @@ export async function fetchPublic(raw, { fetcher = fetch, lookup = dnsLookup, ti
       const cached = robotsCache.get(target.origin);
       let robots = cached && clock() - cached.at < 3600000 ? cached.text : null;
       if (robots === null) {
-        const r = await get(target.origin + "/robots.txt", { Accept: "text/plain" });
+        // RFC 9309 2.3.1.2: follow up to five redirects (each target re-checked); still
+        // redirected after that counts as unavailable, like a 4xx.
+        let robotsUrl = target.origin + "/robots.txt", r = await get(robotsUrl, { Accept: "text/plain" });
+        for (let i = 0; i < 5 && REDIRECTS.includes(r.status) && r.headers.get("location"); i++) {
+          robotsUrl = (await checkPublicUrl(new URL(r.headers.get("location"), robotsUrl).href, lookup)).href;
+          r = await get(robotsUrl, { Accept: "text/plain" });
+        }
         // RFC 9309: 4xx means no restrictions; 5xx or unreachable means assume full disallow.
         robots = r.status >= 500 ? "User-agent: *\nDisallow: /" : r.ok ? await readCapped(r, 500_000, controller) : "";
         robotsCache.set(target.origin, { text: robots, at: clock() });
       }
       if (!robotsAllows(robots, target.pathname + target.search)) throw new Error("Disallowed by robots.txt");
       const response = await get(target.href);
-      if ([301, 302, 303, 307, 308].includes(response.status)) {
+      if (REDIRECTS.includes(response.status)) {
         const next = response.headers.get("location");
         if (!next) throw new Error("Redirect without location");
         url = new URL(next, target).href;
@@ -181,7 +191,7 @@ export async function fetchPublic(raw, { fetcher = fetch, lookup = dnsLookup, ti
       if (!response.ok) throw new Error(`Source responded ${response.status}`);
       const contentType = response.headers.get("content-type") || "";
       if (!accept.test(contentType)) throw new Error("Unexpected content type");
-      return { url: target.href, text: await readCapped(response, maxBytes, controller), contentType };
+      return { url: target.href, text: await readCapped(response, maxBytes, controller, decode), contentType };
     }
     throw new Error("Too many redirects");
   } catch (e) {

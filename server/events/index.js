@@ -5,7 +5,7 @@ import { distanceKm } from "../discovery.js";
 import { textKey, textWords } from "./normalize.js";
 import { parseOffsetIso } from "./time.js";
 import { searchTicketmaster } from "./ticketmaster.js";
-import { parseICal } from "./ical.js";
+import { parseICal, decodeICal } from "./ical.js";
 import { extractEvents, fetchPublic } from "./jsonld.js";
 import { CITY_SOURCES } from "./sources.js";
 
@@ -24,7 +24,10 @@ export function eventsInput(params) {
 
 function sameEvent(a, b) {
   const ka = textKey(a.title);
-  if (!ka || ka !== textKey(b.title) || !(Math.abs(startMs(a) - startMs(b)) <= SAME_START_MS)) return false;
+  const apart = Math.abs(startMs(a) - startMs(b));
+  if (!ka || ka !== textKey(b.title) || !(apart <= SAME_START_MS)) return false;
+  // One source listing the same title twice at different times is two showtimes, not a duplicate.
+  if (a.source === b.source && apart !== 0) return false;
   if (hasCoords(a) && hasCoords(b)) return distanceKm(a, b) <= SAME_PLACE_KM;
   const va = textKey(a.venueName);
   return !!va && va === textKey(b.venueName);
@@ -37,7 +40,9 @@ export function mergeEvents(lists) {
   const kept = [];
   for (const event of lists.flat()) {
     if (!Number.isFinite(startMs(event))) continue;
-    const i = kept.findIndex(k => sameEvent(k, event));
+    // The closest-starting match wins, so an early and a late show each absorb their own copy.
+    let i = -1;
+    kept.forEach((k, j) => { if (sameEvent(k, event) && (i < 0 || Math.abs(startMs(k) - startMs(event)) < Math.abs(startMs(kept[i]) - startMs(event)))) i = j; });
     if (i < 0) { kept.push({ ...event }); continue; }
     const [win, lose] = better(kept[i], event) ? [kept[i], event] : [event, kept[i]];
     kept[i] = { ...win, ...(hasCoords(win) ? {} : { lat: lose.lat, lng: lose.lng }), end: win.end || lose.end, url: win.url || lose.url, venueName: win.venueName || lose.venueName };
@@ -74,7 +79,7 @@ export function createEventsService({ fetcher = fetch, lookup, clock = Date.now,
     const saved = pages.get(source.url);
     if (saved && clock() - saved.at < 1800000) return saved;
     const accept = source.kind === "ical" ? /^(text\/calendar|text\/plain|application\/octet-stream)/i : undefined;
-    const got = await fetchPublic(source.url, { fetcher, ...(lookup ? { lookup } : {}), timeoutMs, maxBytes: source.kind === "ical" ? 3_000_000 : 1_500_000, robotsCache, clock, ...(accept ? { accept } : {}) });
+    const got = await fetchPublic(source.url, { fetcher, ...(lookup ? { lookup } : {}), timeoutMs, maxBytes: source.kind === "ical" ? 3_000_000 : 1_500_000, robotsCache, clock, ...(accept ? { accept, decode: decodeICal } : {}) });
     const value = { text: got.text, url: got.url, at: clock(), fetchedAt: new Date(clock()).toISOString() };
     remember(pages, source.url, value);
     return value;
