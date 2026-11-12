@@ -12,3 +12,6 @@ output/playwright/
 
 # Local logs, screenshots and audit evidence (2+ GB)
 output/
+
+# Agent worktrees and local tool state
+.claude/
