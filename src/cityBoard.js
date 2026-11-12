@@ -8,9 +8,15 @@
 // Pure module: no DOM, no clock. Dates come from the journal's visitDate.
 import { normalizeKind, venueGroup } from "./venues.js";
 import { validDate } from "./model.js";
+import { SYNONYMS, nameKey, nameSimilarity } from "./saveMatch.js";
 
 export const ELSEWHERE = "Elsewhere";
 export const MATCH_RADIUS_M = 120;
+// A name that differs only in wording ("Heinz Hall" / "Heinz Hall for the
+// Performing Arts", "Fogo de Chão" / "Fogo de Chao Brazilian Steakhouse")
+// is the same venue only when it is this close and this similar.
+export const NEAR_MATCH_M = 60;
+export const NEAR_SIMILARITY = 0.85;
 export const COUNT_MILESTONES = [10, 25, 50, 100, 250];
 export const SET_MIN = 4;
 export const SET_MAX = 15;
@@ -44,6 +50,7 @@ const KIND_PLURALS = {
   bowling_alley: "bowling alleys",
   escape_game: "escape rooms",
   amusement_arcade: "arcades",
+  horseback_riding: "horseback riding stables",
 };
 export const kindPlural = (kind) => KIND_PLURALS[kind] || `${kind.replace(/_/g, " ")}s`;
 
@@ -60,6 +67,12 @@ export function normalizeName(name = "") {
     .replace(/[^\p{L}\p{M}\p{N}]+/gu, " ")
     .trim()
     .replace(/^the /, "");
+}
+
+// The identity key: normalizeName with spelling variants folded
+// (theatre/theater, centre/center, St/Saint), the same words saveMatch folds.
+export function venueKey(name = "") {
+  return normalizeName(name).split(" ").map((t) => SYNONYMS[t] || t).join(" ");
 }
 
 export function slug(value = "") {
@@ -92,6 +105,13 @@ function boardPlace(place) {
 }
 
 const byName = (a, b) => (a.name === ELSEWHERE) - (b.name === ELSEWHERE) || a.name.localeCompare(b.name);
+
+// A city pack (data/city-packs/*.json) names these fields slug, city and
+// release; the Overture release is the edition. Labels use the pack's
+// shortName ("Columbus"), not its display name ("Columbus, OH").
+export function boardFromPack(pack) {
+  return makeBoard({ cityId: pack?.slug, cityName: pack?.shortName || pack?.city, edition: pack?.release, builtAt: pack?.builtAt, places: pack?.places });
+}
 
 // A board is one edition of a city. Places without a usable id, name,
 // coordinates or venue kind are left out (and counted), never guessed at.
@@ -132,19 +152,47 @@ export function makeBoard({ cityId, cityName, edition, builtAt, places }) {
 // Identity matching. Journal records carry ids from the guide the user saved
 // them from; a city pack may use different ids for the same venue. Rules:
 //  1. An exact id match always wins.
-//  2. Otherwise the same normalized name within 120 m, nearest first.
-//  3. Each visit credits at most one place, and a place is credited once;
+//  2. Otherwise the same venueKey within 120 m, nearest first.
+//  3. Otherwise a similar name (nameSimilarity either way >= 0.85) within
+//     60 m, most similar then nearest.
+//  4. Each visit credits at most one place, and a place is credited once;
 //     its earned date is the earliest visit that matched it.
-// Visits without a valid visit date or coordinates (for rule 2) never count.
+// Visits without a valid visit date or coordinates (for rules 2-3) never count.
+// decide.js uses the same sameVenue(), so the board and the picks agree.
+// Similar names must also lead with the same word (allowing a typo), or be the
+// same letters once spaces go: "Pittsburgh Steak Company" is not "Southside
+// Steaks" although "steak" sits inside both.
+function similarNames(a, b) {
+  const similarity = Math.max(nameSimilarity(a, b), nameSimilarity(b, a));
+  if (similarity < NEAR_SIMILARITY) return 0;
+  const ka = nameKey(a), kb = nameKey(b);
+  const leads = ka.replace(/ /g, "") === kb.replace(/ /g, "") || nameSimilarity(ka.split(" ")[0], kb.split(" ")[0]) >= NEAR_SIMILARITY;
+  return leads ? similarity : 0;
+}
+
+export function sameVenue(place, pool) {
+  if (!hasPoint(place) || typeof place.name !== "string") return null;
+  const key = venueKey(place.name);
+  let best = null;
+  for (const other of pool) {
+    if (!hasPoint(other) || typeof other.name !== "string") continue;
+    // About 120 m of latitude; skips the haversine for almost every place.
+    if (Math.abs(other.lat - place.lat) > 0.0012) continue;
+    const d = distanceM(place, other);
+    if (d > MATCH_RADIUS_M) continue;
+    let rank;
+    if (key && venueKey(other.name) === key) rank = 2;
+    else if (d <= NEAR_MATCH_M) {
+      rank = similarNames(place.name, other.name);
+      if (!rank) continue;
+    } else continue;
+    if (!best || rank > best.rank || (rank === best.rank && (d < best.d || (d === best.d && other.id < best.place.id)))) best = { place: other, rank, d };
+  }
+  return best ? { place: best.place, via: best.rank === 2 ? "name" : "similar", distanceM: best.d } : null;
+}
+
 export function matchVisits(candidates, outings = []) {
   const ids = new Map(candidates.map((p) => [p.id, p]));
-  const names = new Map();
-  for (const place of candidates) {
-    const key = normalizeName(place.name);
-    if (!key || !hasPoint(place)) continue;
-    if (!names.has(key)) names.set(key, []);
-    names.get(key).push(place);
-  }
   const visits = outings
     .filter((o) => o && o.status === "visited" && o.place && typeof o.place.id === "string" && validDate(o.visitDate))
     .sort((a, b) => a.visitDate.localeCompare(b.visitDate) || String(a.createdAt || "").localeCompare(String(b.createdAt || "")) || String(a.id || "").localeCompare(String(b.id || "")));
@@ -160,19 +208,10 @@ export function matchVisits(candidates, outings = []) {
     if (place) credit(place, visit, "id");
     else rest.push(visit);
   }
+  const named = candidates.filter((p) => hasPoint(p) && normalizeName(p.name));
   for (const visit of rest) {
-    if (!hasPoint(visit.place)) continue;
-    const pool = names.get(normalizeName(visit.place.name)) || [];
-    let best = null;
-    let bestDistance = Infinity;
-    for (const place of pool) {
-      const d = distanceM(visit.place, place);
-      if (d <= MATCH_RADIUS_M && (d < bestDistance || (d === bestDistance && place.id < best.id))) {
-        best = place;
-        bestDistance = d;
-      }
-    }
-    if (best) credit(best, visit, "name");
+    const hit = sameVenue(visit.place, named);
+    if (hit) credit(hit.place, visit, hit.via);
   }
   return earned;
 }

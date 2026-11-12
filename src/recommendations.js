@@ -23,9 +23,9 @@ export function editorialFreshness(recommendation, now=Date.now()) {
  return now-timestamp<=2*365*86400000?'dated':'old';
 }
 export function rankRecommendations(items,outings=[],now=Date.now()){
- const liked=new Set(outings.filter(o=>o.status==='visited'&&o.rating>=4).map(o=>venueGroup(o.place.category)).filter(Boolean));
+ const liked=new Set(outings.filter(o=>o.status==='visited'&&o.place&&o.rating>=4).map(o=>venueGroup(o.place.category)).filter(Boolean));
  const remaining=items.map(item=>{
-  const p=item.place, own=outings.filter(o=>o.place.id===p.id),latest=own.filter(o=>o.status==='visited').sort((a,b)=>(b.visitDate||'').localeCompare(a.visitDate||''))[0];
+  const p=item.place, own=outings.filter(o=>o.status!=='saved'&&o.place?.id===p.id),latest=own.filter(o=>o.status==='visited').sort((a,b)=>(b.visitDate||'').localeCompare(a.visitDate||''))[0];
   const freshness=editorialFreshness(p.recommendation,now);
   let score=p.recommendation?.text?(freshness==='dated'?18:freshness==='unknown'?4:0):0;const reasons=[];
   if(p.recommendation?.text)reasons.push(freshness==='dated'?`Guide entry updated ${p.recommendation.listingUpdated}`:freshness==='old'?'Older guide entry':'Guide entry · date unknown');

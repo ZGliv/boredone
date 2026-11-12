@@ -1,5 +1,6 @@
 {
   "city": "Pittsburgh metro",
+  "shortName": "Pittsburgh",
   "slug": "pittsburgh-metro",
   "center": {
     "lat": 40.44,

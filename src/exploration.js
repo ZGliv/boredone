@@ -1,8 +1,10 @@
+import { venueGroup } from "./venues.js";
+
 // A place gets one pin even when the journal contains several visits.
 // Prefer the most recent visit so its current metadata wins deterministically.
 export function journalPlaces(outings, status) {
   const places = new Map();
-  const rows = outings.filter((outing) => outing.status === status).sort((a, b) =>
+  const rows = outings.filter((outing) => outing.status === status && outing.place).sort((a, b) =>
     (b.visitDate || b.planDate || "").localeCompare(a.visitDate || a.planDate || "") ||
     b.updatedAt.localeCompare(a.updatedAt));
   for (const outing of rows) {
@@ -12,8 +14,8 @@ export function journalPlaces(outings, status) {
 }
 
 export function pinStatus(placeId, outings) {
-  if (outings.some((outing) => outing.place.id === placeId && outing.status === "planned")) return "planned";
-  if (outings.some((outing) => outing.place.id === placeId && outing.status === "visited")) return "visited";
+  if (outings.some((outing) => outing.status === "planned" && outing.place?.id === placeId)) return "planned";
+  if (outings.some((outing) => outing.status === "visited" && outing.place?.id === placeId)) return "visited";
   return "discovered";
 }
 
@@ -23,8 +25,14 @@ export const LANDMARKS = [
   { id: "gallery", title: "Curious corners", label: "Arts & culture", category: "culture" },
   { id: "play", title: "Just for fun", label: "Something playful", category: "play" },
 ];
+// Landmark for a venue kind comes from its venue group, so a brewery or a
+// nightclub is never filed under Outside and a biergarten never under Arts.
+// The word patterns are only for older free-text map categories.
+const GROUP_LANDMARK = { food: "cafe", coffee: "cafe", drinks: "cafe", culture: "gallery", play: "play" };
 export function placeKind(category = "") {
-  const value = category.toLowerCase();
+  const group = venueGroup(category);
+  if (group) return GROUP_LANDMARK[group];
+  const value = String(category || "").toLowerCase();
   if (/cafe|café|coffee|food|restaurant|bakery|bar|pub|tea|ice.cream/.test(value)) return "cafe";
   if (/art.studio/.test(value)) return "play";
   if (/art|museum|gallery|theatre|theater|culture|library|cinema|attraction/.test(value)) return "gallery";
@@ -32,11 +40,11 @@ export function placeKind(category = "") {
   return "garden";
 }
 export function collectionStamps(outings) {
-  const visits = outings.filter((outing) => outing.status === "visited");
+  const visits = outings.filter((outing) => outing.status === "visited" && outing.place);
   return LANDMARKS.map((kind) => ({ ...kind, count: new Set(visits.filter((outing) => placeKind(outing.place.category) === kind.id).map((outing) => outing.place.id)).size }));
 }
 export function chooseUnvisited(places, outings, currentId, random = Math.random) {
-  const visited = new Set(outings.filter((outing) => outing.status === "visited").map((outing) => outing.place.id));
+  const visited = new Set(outings.filter((outing) => outing.status === "visited" && outing.place).map((outing) => outing.place.id));
   const newPlaces = places.filter((place) => !visited.has(place.id) && place.id !== currentId);
   const choices = newPlaces.length ? newPlaces : places.filter((place) => place.id !== currentId);
   const pool = choices.length ? choices : places;

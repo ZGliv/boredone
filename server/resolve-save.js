@@ -1,12 +1,14 @@
 import Anthropic from '@anthropic-ai/sdk';
 import {VENUE_KINDS} from '../src/venues.js';
 import {parseSaveUrl, splitShare, resolveDatePhrase, isIsoDate} from '../src/saveSource.js';
+import {MAX_SAVE_TEXT} from '../src/model.js';
 // Turns "a shared link plus whatever text came with it" into up to five venue
 // or event candidates. It NEVER fetches the link: Instagram's and TikTok's
 // terms forbid scraping, and their official embed endpoints return no caption.
 // Only the words the user or the share sheet supplied are read.
 export const DEFAULT_MODEL = 'claude-haiku-5-5';
-export const MAX_TEXT = 4000;
+// The limit a save record keeps, so the resolver never reads words the save will not have.
+export const MAX_TEXT = MAX_SAVE_TEXT;
 const MAX_BODY = 24 * 1024, MAX_OUTPUT_TOKENS = 1500, TIMEOUT_MS = 15000;
 const KINDS = [...VENUE_KINDS, 'event'];
 export class ResolveError extends Error {constructor(status, code, message) {super(code); this.status = status; this.code = code; this.detail = message;}}
@@ -203,7 +205,10 @@ export function createResolveSaveHandler({resolve = createResolver(), throttle =
   if (!/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '')) { send(415, {error: 'json_required'}); return; }
   try {
    if (Number(req.headers['content-length']) > MAX_BODY) throw new ResolveError(413, 'request_too_large');
-   let body = req.body;
+   // On Vercel req.body is a lazy getter that throws on malformed JSON; that
+   // is the caller's mistake (400), the same answer the dev server gives.
+   let body;
+   try { body = req.body; } catch { throw new ResolveError(400, 'invalid_request'); }
    if (body === undefined) {
     const parts = []; let size = 0;
     for await (const part of req) { size += part.length; if (size > MAX_BODY) throw new ResolveError(413, 'request_too_large'); parts.push(Buffer.from(part)); }

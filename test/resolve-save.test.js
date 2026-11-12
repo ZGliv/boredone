@@ -79,7 +79,7 @@ test('evidence the text does not contain is rejected even when the name looks pl
  const m=mock([cand({name:'Primanti Bros.',evidence:'Primanti Bros.'})]);
  assert.equal((await resolver(m)({text:'the best sandwich of my life honestly'})).status,'unresolved');
 });
-test('oversized captions are capped at 4000 characters and reported',async()=>{
+test('oversized captions are capped at the save text limit and reported',async()=>{
  const m=mock([]);const r=await resolver(m)({text:'Condado tacos '.repeat(500)});
  assert.equal(r.truncated,true);assert.ok(prompt(m.calls[0]).length<MAX_TEXT+600);
 });
@@ -129,6 +129,11 @@ test('handler: oversized and malformed bodies are rejected',async()=>{
  await h(req({headers:{'content-length':'999999'},body:{text:'Condado'}}),r=res());assert.equal(r.statusCode,413);
  await h(req({body:'{not json'}),r=res());assert.equal(r.statusCode,400);
  assert.equal(m.calls.length,0);
+});
+test('handler: on Vercel a malformed body (a throwing req.body getter) is 400, as in dev',async()=>{
+ const m=mock([]);const r=res();
+ const vercel=Object.defineProperty(req(),'body',{get(){const e=new Error('Invalid JSON');e.statusCode=400;throw e;}});
+ await handler(m)(vercel,r);assert.equal(r.statusCode,400);assert.equal(r.json().error,'invalid_request');assert.equal(m.calls.length,0);
 });
 test('handler: a missing key is a 503 with a readable message',async()=>{
  const h=createResolveSaveHandler({resolve:createResolver({env:{},now:()=>NOW}),throttle:createThrottle()});const r=res();

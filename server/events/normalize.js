@@ -21,6 +21,7 @@ export function validCoord(lat, lng) {
   return typeof a === "number" && typeof b === "number" && Number.isFinite(a) && Number.isFinite(b) && Math.abs(a) <= 90 && Math.abs(b) <= 180 && !(a === 0 && b === 0) ? { lat: a, lng: b } : null;
 }
 // The one shape every source produces. Unknown values stay empty or null; nothing is filled in.
-export function makeEvent({ id, title, venueName = "", coords = null, start, end = "", url = "", source, sourceName, fetchedAt }) {
-  return { id, title: cleanText(title, 300), venueName: cleanText(venueName, 200), lat: coords?.lat ?? null, lng: coords?.lng ?? null, start, end: end || "", url: safeUrl(url), source, sourceName: cleanText(sourceName, 120), placeId: "", fetchedAt };
+// allDay marks a date-only listing: start and end are local midnights, not times to quote.
+export function makeEvent({ id, title, venueName = "", coords = null, start, end = "", allDay = false, url = "", source, sourceName, fetchedAt }) {
+  return { id, title: cleanText(title, 300), venueName: cleanText(venueName, 200), lat: coords?.lat ?? null, lng: coords?.lng ?? null, start, end: end || "", allDay: !!allDay, url: safeUrl(url), source, sourceName: cleanText(sourceName, 120), placeId: "", fetchedAt };
 }

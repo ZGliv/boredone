@@ -2,6 +2,7 @@ import React,{useEffect,useState} from 'react';
 import {readLibrary} from './storage.js';
 import AccountRemovalControls from './AccountRemovalControls.jsx';
 import {displayDate} from './model.js';
+import {outingLabel} from './saves.js';
 export function syncLabel(account,sync){
   if(!account?.owner)return 'Saved on this device';
   if(account.removal)return 'Account removal in progress';
@@ -36,7 +37,7 @@ export default function AccountPanel({account,library,onChanged,onExport}){
       <div className="button-row"><button className="secondary" disabled={busy} onClick={()=>act(()=>account.sync())}>Sync now</button><button className="text-button" disabled={busy} onClick={()=>act(async()=>{if((library.sync?.pending||library.sync?.conflicts?.length||library.sync?.cleanup)&&!confirm('Some changes are only on this device. Sign in to this same account later to finish syncing them. Sign out now?'))return;await account.signOut();})}>Sign out</button></div>
       {!!library.sync?.conflicts?.length&&<button className="secondary" disabled={busy} onClick={()=>act(async()=>setReview(await store.conflicts()))}>Review conflicting changes</button>}
       {review?.items.map(item=><div className="account-conflict" key={item.id}>
-        <h3>{item.local?.place.name||item.cloud?.place.name||'Deleted visit'}</h3>
+        <h3>{item.local?outingLabel(item.local):item.cloud?outingLabel(item.cloud):'Deleted visit'}</h3>
         <p>{item.cloud?'This visit changed on another device.':'This visit was deleted on another device.'} {item.local?"Your local version is still here.":"Your local change removes this visit."}</p>
         {item.cloud&&<details><summary>See account version</summary><p>{displayDate(item.cloud.visitDate||item.cloud.planDate)}{item.cloud.with&&` · With ${item.cloud.with}`}</p><p>{item.cloud.notes}</p><div className="account-photo-strip">{item.cloud.photos.map((photo,i)=><img key={i} src={photo} alt={`Account version photo ${i+1}`}/>)}</div></details>}
         <div className="button-row">{item.local&&<button disabled={busy} onClick={()=>act(()=>resolve(item.id,'keep-both'))}>Keep my version as a copy</button>}<button className="secondary" disabled={busy} onClick={()=>act(async()=>{if(confirm('Replace this local version with the account version? Export your journal first to keep an extra copy.'))await resolve(item.id,'use-cloud');})}>{item.cloud?'Use account version':'Accept deletion'}</button></div>

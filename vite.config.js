@@ -5,6 +5,8 @@ import { defineConfig } from "vite";
 import { offlineAreaHandler } from "./server/offline-area.js";
 import { editorialHandler } from "./server/editorial.js";
 import { discoveryHandler } from "./server/discovery.js";
+import { resolveSaveHandler } from "./server/resolve-save.js";
+import { eventsHandler } from "./server/events/index.js";
 const deploymentHeaders = JSON.parse(readFileSync(new URL("./vercel.json", import.meta.url))).headers[0].headers;
 export default defineConfig({
   // Archived venue HTML in output/ is research material, not application entry points.
@@ -19,6 +21,8 @@ export default defineConfig({
         server.middlewares.use("/api/editorial", (req, res) => editorialHandler(req, res));
         server.middlewares.use("/api/offline-area", (req, res) => offlineAreaHandler(req, res));
         server.middlewares.use("/api/discover", (req, res) => discoveryHandler(req, res));
+        server.middlewares.use("/api/resolve-save", (req, res) => resolveSaveHandler(req, res));
+        server.middlewares.use("/api/events", (req, res) => eventsHandler(req, res));
       },
       configureServer(server) {
         server.middlewares.use("/api/account-removal", (req,res)=>accountRemovalHandler(req,res));
@@ -27,6 +31,8 @@ export default defineConfig({
         server.middlewares.use("/api/discover", (req, res) =>
           discoveryHandler(req, res),
         );
+        server.middlewares.use("/api/resolve-save", (req, res) => resolveSaveHandler(req, res));
+        server.middlewares.use("/api/events", (req, res) => eventsHandler(req, res));
       },
     },
   ],

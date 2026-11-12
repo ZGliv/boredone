@@ -1,10 +1,11 @@
 // Pure helpers for a "save": a shared link plus whatever text came with it.
 // Shared by the client and server/resolve-save.js. Nothing here fetches.
+import {MAX_SAVE_TEXT} from './model.js';
 export const SAVE_APPS = ['instagram','tiktok','youtube','google-maps','web','note'];
 const NOTE = Object.freeze({app:'note',kind:'note',id:'',canonicalUrl:'',hint:''});
 // Click-tracking and share-attribution parameters. They identify the sharer,
 // not the thing shared, so they never belong in a saved record.
-const TRACKING = /^(utm_[a-z_]+|fbclid|gclid|dclid|gbraid|wbraid|msclkid|mc_cid|mc_eid|_hsenc|_hsmi|igsh|igshid|ig_rid|ig_mid|si|feature|ref|ref_src|ref_url|share_id|share_app_id|share_link_id|is_from_webapp|is_copy_url|sender_device|sender_web_id|_r|_t|_d|tt_from|u_code|preview_pb|sec_uid|social_sharing|g_ep|g_st|ved|rlz|sourceid|spm|smid|cmpid|ocid|mibextid)$/i;
+export const TRACKING = /^(utm_[a-z_]+|fbclid|gclid|dclid|gbraid|wbraid|msclkid|mc_cid|mc_eid|_hsenc|_hsmi|igsh|igshid|ig_rid|ig_mid|si|feature|ref|ref_src|ref_url|share_id|share_app_id|share_link_id|is_from_webapp|is_copy_url|sender_device|sender_web_id|_r|_t|_d|tt_from|u_code|preview_pb|sec_uid|social_sharing|g_ep|g_st|ved|rlz|sourceid|spm|smid|cmpid|ocid|mibextid)$/i;
 const clean = value => String(value ?? '').replace(/[\u0000-\u001f\u007f]/g,'').trim();
 
 function toUrl(input) {
@@ -161,9 +162,15 @@ export function resolveDatePhrase(phrase, today) {
  return iso(candidate);
 }
 
+// Cut to the save limit with an ellipsis, never leaving half an emoji.
+export function clipText(value, max = MAX_SAVE_TEXT) {
+ const text = String(value ?? '');
+ return text.length <= max ? text : text.slice(0, max - 1).replace(/[\ud800-\udbff]$/, '') + '…';
+}
+
 // The `source` field of a save record. text is what the user or share sheet
 // supplied; nothing in it is generated.
 export function saveSource({url = '', text = '', savedAt, eventDate = '', expiresAt = ''} = {}) {
  const parsed = parseSaveUrl(url);
- return {url: parsed.canonicalUrl, app: parsed.app, text: clean(text).slice(0,4000), savedAt: savedAt || new Date().toISOString(), eventDate: isIsoDate(eventDate) ? eventDate : '', expiresAt: isIsoDate(expiresAt) ? expiresAt : ''};
+ return {url: parsed.canonicalUrl, app: parsed.app, text: clipText(clean(text)), savedAt: savedAt || new Date().toISOString(), eventDate: isIsoDate(eventDate) ? eventDate : '', expiresAt: isIsoDate(expiresAt) ? expiresAt : ''};
 }

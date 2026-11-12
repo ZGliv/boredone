@@ -7,7 +7,7 @@ import {normalizeKind, venueGroup} from './venues.js';
 // Words that describe the kind of venue, not which one. "Mike's Beer Bar" and
 // "Mike's Beer" are the same place; "Bar" alone is nothing.
 const GENERIC = new Set(['the','a','an','of','at','on','in','and','bar','bars','pub','tavern','saloon','cafe','caffe','coffee','shop','house','restaurant','restaurante','ristorante','kitchen','grill','bistro','eatery','diner','pizzeria','bakery','brewery','brewing','taproom','lounge','company','co','inc','llc','pittsburgh','pgh']);
-const SYNONYMS = {bros:'brothers',bro:'brother',st:'saint',ste:'saint',mt:'mount',n:'north',s:'south',e:'east',w:'west',ctr:'center',centre:'center',theatre:'theater'};
+export const SYNONYMS = {bros:'brothers',bro:'brother',st:'saint',ste:'saint',mt:'mount',n:'north',s:'south',e:'east',w:'west',ctr:'center',centre:'center',theatre:'theater'};
 
 export function nameTokens(value) {
  const text = String(value ?? '').normalize('NFKD').replace(/[̀-ͯ]/g,'').toLowerCase()

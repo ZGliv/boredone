@@ -82,7 +82,7 @@ export function extractEvents(html, { baseUrl = "", sourceName = "", fetchedAt =
     const geo = typeof place === "object" ? [].concat(place?.geo || [])[0] : null;
     const coords = geo ? validCoord(geo.latitude, geo.longitude) : null;
     const url = resolveUrl(node.url || node["@id"], baseUrl) || resolveUrl(baseUrl);
-    events.push(makeEvent({ id: hashId("jsonld", url, title, String(start.ms)), title, venueName, coords, start: fmt(start.ms, start.offset), end: endMs !== null ? fmt(endMs, end?.offset ?? start.offset) : "", url, source: "jsonld", sourceName, fetchedAt }));
+    events.push(makeEvent({ id: hashId("jsonld", url, title, String(start.ms)), title, venueName, coords, start: fmt(start.ms, start.offset), end: endMs !== null ? fmt(endMs, end?.offset ?? start.offset) : "", allDay: !!start.allDay, url, source: "jsonld", sourceName, fetchedAt }));
   }
   return { events, skipped };
 }

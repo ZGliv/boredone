@@ -114,9 +114,9 @@ test('a pop-up closing before next weekend is flagged as the last weekend', () =
   assert.equal(r.picks[0].reasons[0], 'Last weekend before it closes');
 });
 
-test('a save dated this Sunday is on this weekend', () => {
+test('a save dated this Sunday names the day instead of reading as tonight', () => {
   const r = decideTonight({saves: [save(HEINZ, {eventDate: '2026-11-15'})], context: ctx(), seed: 1});
-  assert.equal(r.picks[0].reasons[0], 'On this weekend');
+  assert.equal(r.picks[0].reasons[0], 'On Sunday 15 Nov');
 });
 
 test('mid-week, a pop-up closing Wednesday is "ends in 2 days", not the last weekend', () => {
@@ -374,12 +374,13 @@ test('reasons never mention data the record lacks', () => {
       assert.ok(!/open/i.test(text), text);
       if (!hasLocation) assert.ok(!/away/.test(text), text);
       if (!src?.savedAt) assert.ok(!/Saved (today|yesterday|\d)/.test(text), text);
-      if (!src?.eventDate) assert.ok(!/Happening today|On this weekend|On in|On tomorrow/.test(text), text);
+      if (!src?.eventDate) assert.ok(!/Happening (today|tonight)|On \w+day \d/.test(text), text);
       if (!src?.expiresAt) assert.ok(!/Last day|closes|Ends/.test(text), text);
       if (pick.place) assert.ok(!/needs confirming/.test(text), text);
       if (!outings.some(o => o.place.id === pick.place?.id)) assert.ok(!/You rated it|You went/.test(text), text);
       if (!outings.length) assert.ok(!/rated/.test(text), text);
-      if (pick.kind !== 'event') assert.ok(!/Starts|On now/.test(text), text);
+      if (pick.kind !== 'event') assert.ok(!/Starts|On now|Runs until|On today/.test(text), text);
+      assert.ok(pick.reasons.length > 0, 'every pick has a reason');
     }
   }
 });
@@ -408,7 +409,7 @@ test('a UTC-stamped event is shown in the caller zone', () => {
 
 test('a long-running event under way gives its end date, not a bare time', () => {
   const r = decideTonight({events: [event(HEINZ, '2026-10-01T10:00:00-04:00', {end: '2027-01-01T17:00:00-05:00'})], context: ctx(), seed: 1});
-  assert.equal(r.picks[0].reasons[0], 'On now until 1 Jan');
+  assert.equal(r.picks[0].reasons[0], 'Runs until 1 Jan 2027');
 });
 
 test('a past outing with a null category does not crash the engine', () => {
@@ -420,4 +421,95 @@ test('a past outing with a null category does not crash the engine', () => {
 test('an unresolved save with no known app does not claim it came from a link', () => {
   const r = decideTonight({saves: [{...save(null), source: {url: '', app: '', text: '', savedAt: '', eventDate: '', expiresAt: ''}}], context: ctx(), seed: 1});
   assert.deepEqual(r.picks[0].reasons, ['Saved · place still needs confirming']);
+});
+
+// Integration review (af6bb0d): each case below failed before the fix.
+const EVENING_SAVE = {eventDate: '2026-11-13', savedAt: '2026-11-13T15:00:00Z'};
+test('after midnight the Friday session is still open: a Friday save is not "passed"', () => {
+  for (const now of ['2026-11-14T02:30:00-05:00', '2026-11-14T04:59:00-05:00']) {
+    const r = decideTonight({saves: [save(null, EVENING_SAVE)], context: ctx({now}), seed: 1});
+    assert.equal(r.picks.length, 1, now);
+    assert.equal(r.picks[0].reasons[0], 'Happening tonight');
+    assert.ok(!r.explain.notes.some(x => /passed/.test(x)));
+  }
+  const r = decideTonight({saves: [save(null, EVENING_SAVE)], context: ctx({now: '2026-11-14T05:00:00-05:00'}), seed: 1});
+  assert.equal(r.picks.length, 0, 'at 5 am the session has reset');
+  const sat = decideTonight({saves: [save(null, {eventDate: '2026-11-14'})], context: ctx({now: '2026-11-14T02:30:00-05:00'}), seed: 1});
+  assert.equal(sat.picks[0].reasons[0], 'On Saturday 14 Nov', 'a Saturday save is not "today" before the user has slept');
+});
+
+test('save age counts calendar days in the caller zone, not 24-hour blocks', () => {
+  const thursdayEvening = save(null, {app: 'note', savedAt: '2026-11-12T23:59:00Z'}); // Thu 18:59 EST
+  assert.ok(decideTonight({saves: [thursdayEvening], context: ctx({now: '2026-11-13T18:10:00-05:00'}), seed: 1}).picks[0].reasons.includes('Saved yesterday'));
+  const beforeMidnight = save(null, {app: 'note', savedAt: '2026-11-13T04:50:00Z'}); // Thu 23:50 EST
+  assert.ok(decideTonight({saves: [beforeMidnight], context: ctx({now: '2026-11-13T00:20:00-05:00'}), seed: 1}).picks[0].reasons.includes('Saved yesterday'));
+  const sameDay = save(null, {app: 'note', savedAt: '2026-11-13T05:10:00Z'}); // Fri 00:10 EST
+  assert.ok(decideTonight({saves: [sameDay], context: ctx({now: '2026-11-13T23:50:00-05:00'}), seed: 1}).picks[0].reasons.includes('Saved today'));
+  const yearOld = save(null, {app: 'note', savedAt: '2025-11-01T15:00:00Z'});
+  assert.ok(decideTonight({saves: [yearOld], context: ctx(), seed: 1}).picks[0].reasons.includes('Saved a year ago'));
+});
+
+test('all-day events never get a clock time and only show on their own day', () => {
+  const market = event(HEINZ, '2026-11-14T00:00:00-05:00', {end: '2026-11-15T00:00:00-05:00', allDay: true, title: 'Holiday Market'});
+  assert.equal(decideTonight({events: [market], context: ctx({now: '2026-11-13T21:00:00-05:00'}), seed: 1}).pool, 0, 'not "starts 12:00 am tonight" the evening before');
+  const sat = decideTonight({events: [market], context: ctx({now: '2026-11-14T19:00:00-05:00'}), seed: 1});
+  assert.equal(sat.picks[0].reasons[0], 'On today');
+  // The same listing without the flag (midnight to midnight) is read the same way.
+  const unflagged = {...market, allDay: undefined};
+  assert.equal(decideTonight({events: [unflagged], context: ctx({now: '2026-11-14T19:00:00-05:00'}), seed: 1}).picks[0].reasons[0], 'On today');
+  const fair = event(HEINZ, '2026-11-13T00:00:00-05:00', {end: '2026-11-16T00:00:00-05:00', allDay: true});
+  assert.equal(decideTonight({events: [fair], context: ctx(), seed: 1}).picks[0].reasons[0], 'Runs until 15 Nov');
+});
+
+test('a multi-month exhibition is never "on now", even at 2:30 am', () => {
+  const show = event(HEINZ, '2026-05-02T08:00:00-04:00', {end: '2027-01-03T17:00:00-05:00'});
+  for (const now of ['2026-11-13T18:10:00-05:00', '2026-11-14T02:30:00-05:00']) {
+    const reasons = decideTonight({events: [show], context: ctx({now}), seed: 1}).picks[0].reasons;
+    assert.equal(reasons[0], 'Runs until 3 Jan 2027', now);
+  }
+});
+
+test('events without coordinates are not exempt from distance', () => {
+  const nowhere = {...event(HEINZ, '2026-11-13T20:00:00-05:00'), lat: null, lng: null, placeId: ''};
+  const limited = decideTonight({events: [nowhere], places: [WARREN], context: ctx({maxKm: 1}), seed: 1});
+  assert.ok(limited.picks.every(p => p.kind !== 'event'), 'left out under a distance limit');
+  assert.ok(limited.explain.notes.some(x => /no map location/.test(x)));
+  const open = decideTonight({events: [nowhere], context: ctx(), seed: 1});
+  assert.ok(open.explain.notes.some(x => /distance is unknown/.test(x)));
+  // A linked venue lends its coordinates.
+  const linked = {...nowhere, placeId: HEINZ.id};
+  const r = decideTonight({events: [linked], places: [HEINZ], context: ctx(), seed: 1});
+  assert.ok(r.picks.find(p => p.kind === 'event').reasons.some(x => / away$/.test(x)));
+});
+
+test('a morning start the next day is not tonight for a caller in another zone', () => {
+  const breakfast = event(HEINZ, '2026-11-18T07:45:00-05:00', {end: '2026-11-18T13:00:00-05:00'});
+  assert.equal(decideTonight({events: [breakfast], context: ctx({now: '2026-11-17T23:00:00-08:00', location: null}), seed: 1}).pool, 0);
+  assert.equal(decideTonight({events: [breakfast], context: ctx({now: '2026-11-17T23:00:00-05:00', location: null}), seed: 1}).pool, 0);
+});
+
+test('with no location and no history every pick still has a factual reason', () => {
+  const r = decideTonight({places: PLACES, context: ctx({location: null}), seed: 0});
+  for (const pick of r.picks) {
+    assert.ok(pick.reasons.length > 0, pick.place.name);
+    assert.match(pick.reasons[0], /^[A-Z][a-z ]+( in .+)?$/);
+  }
+});
+
+test('"Like X" only compares a place with the same kind of place', () => {
+  const outings = [visit(WARREN, '2026-09-01', 5)];
+  const r = decideTonight({places: PLACES, outings, context: ctx({location: null}), seed: 1});
+  for (const pick of r.picks) {
+    if (pick.reasons.includes('Like The Warren, which you rated 5')) assert.equal(pick.place.category, WARREN.category);
+  }
+  const pub = decideTonight({places: [COURTHOUSE], outings, context: ctx({location: null}), seed: 1});
+  assert.ok(!pub.picks[0].reasons.some(x => /^Like /.test(x)), 'a pub is not "like" a bar just because both are drinks');
+  const bar = decideTonight({places: [BIERGARTEN], outings, context: ctx({location: null}), seed: 1});
+  assert.ok(bar.picks[0].reasons.includes('Like The Warren, which you rated 5'), 'a bar is like a bar');
+});
+
+test('a low rating keeps out a duplicate record of the same venue', () => {
+  const twin = {...WARREN, id: 'pack-warren-twin', name: `${WARREN.name} Bar & Burrow`, lat: WARREN.lat + 0.0001};
+  const r = decideTonight({places: [twin, BUTCHER], outings: [visit(WARREN, '2026-09-01', 1)], context: ctx(), seed: 1});
+  assert.deepEqual(r.picks.map(p => p.place.id), [BUTCHER.id]);
 });

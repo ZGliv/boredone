@@ -1,7 +1,7 @@
 // Core-flow smoke test. Prints a deterministic transcript of what a person sees.
 // Run from the repo root after `npm run build`:
 //   npx -y -p playwright@1.64.1 node test/e2e/core-flow.mjs > transcript.txt
-// It serves dist/ with `vite preview` on port 4401, uses a fresh browser profile
+// It serves dist/ with `vite preview` on port 4401 (or E2E_PORT), uses a fresh browser profile
 // per viewport and blocks every non-local request so the output never depends
 // on map tiles, guide services or the network.
 import { spawn, execSync } from "node:child_process";
@@ -9,16 +9,18 @@ import { realpathSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const PORT = 4401;
+const PORT = Number(process.env.E2E_PORT) || 4401;
 const ORIGIN = `http://127.0.0.1:${PORT}`;
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const VIEWPORTS = [[390, 844], [1440, 1000]];
 
+// Prefer the pinned `npx -p playwright` copy on PATH so a stray local install
+// of another version cannot change the transcript.
 async function loadPlaywright() {
-  try { return await import("playwright"); } catch { /* Not a project dependency. */ }
-  // `npx -p playwright` puts its bin on PATH; resolve the package from there.
-  const bin = realpathSync(execSync("command -v playwright", { encoding: "utf8" }).trim());
-  return import(pathToFileURL(join(dirname(bin), "index.mjs")).href);
+  let bin = "";
+  try { bin = realpathSync(execSync("command -v playwright", { encoding: "utf8" }).trim()); } catch { /* Not run via npx. */ }
+  if (bin) return import(pathToFileURL(join(dirname(bin), "index.mjs")).href);
+  return import("playwright");
 }
 
 async function waitForServer(server) {

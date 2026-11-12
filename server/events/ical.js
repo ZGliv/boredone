@@ -190,7 +190,7 @@ export function parseICal(text, { from, to, timeZone = "", sourceUrl = "", sourc
       if (exdates.has(ms) || replaced.has(ms)) return;
       const overlaps = endMs !== null && endMs > ms ? ms < to && endMs > from : ms >= from && ms < to;
       if (!overlaps) return;
-      out.push(makeEvent({ id: hashId("ical", sourceUrl, ev.UID?.value || ev.SUMMARY.value + ev.DTSTART.value, String(ms)), title: unescapeText(ev.SUMMARY.value), venueName: locationName(location), coords, start: fmt(ms), end: endMs !== null && endMs > ms ? fmt(endMs) : "", url: ev.URL?.value.trim() || "", source: "ical", sourceName, fetchedAt }));
+      out.push(makeEvent({ id: hashId("ical", sourceUrl, ev.UID?.value || ev.SUMMARY.value + ev.DTSTART.value, String(ms)), title: unescapeText(ev.SUMMARY.value), venueName: locationName(location), coords, start: fmt(ms), end: endMs !== null && endMs > ms ? fmt(endMs) : "", allDay: !!start.date, url: ev.URL?.value.trim() || "", source: "ical", sourceName, fetchedAt }));
     };
     if (!rule) { emit(instance(start.wall)); continue; }
     const limit = rule.until ? untilMs(rule.until, start) : null;

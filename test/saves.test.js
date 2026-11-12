@@ -151,3 +151,17 @@ test('an unfinished edit of an unresolved save restores with its place still emp
   const blank=makeOuting({id:'manual',name:'x',source:'You'});
   assert.equal(validateDraft({...draft,outing:{...blank,place:{...blank.place,name:''}}}).outing.place.name,'');
 });
+
+test('a long Instagram caption is cut to the one save text limit, never refused', async () => {
+  const {MAX_SAVE_TEXT} = await import('../src/model.js');
+  const {saveSource} = await import('../src/saveSource.js');
+  const {resolveInput, MAX_TEXT} = await import('../server/resolve-save.js');
+  const caption = 'Late night ramen 🍜 '.repeat(120).slice(0, 2143);
+  const s = makeSave({url: 'https://www.instagram.com/reel/ABC123/', text: caption, now: '2026-11-11T20:00:00Z'});
+  assert.equal(s.source.text.length <= MAX_SAVE_TEXT, true);
+  assert.ok(s.source.text.endsWith('…'));
+  assert.ok(!/[\ud800-\udbff]…$/.test(s.source.text), 'no half emoji before the ellipsis');
+  assert.equal(saveSource({text: caption}).text, s.source.text);
+  assert.equal(MAX_TEXT, MAX_SAVE_TEXT);
+  assert.equal(resolveInput({text: caption}).truncated, true);
+});

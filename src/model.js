@@ -8,6 +8,9 @@ export const MAX_RECORDS = MAX_OUTINGS + MAX_SAVES;
 export const SAVE_APPS = ["instagram", "tiktok", "youtube", "google-maps", "web", "note"];
 export const STATUSES = ["saved", "planned", "visited"];
 export const MAX_PHOTOS = 24;
+// One limit for a save's text everywhere: the record, the resolver and the
+// database (journal_saves migration). Longer captions are cut, never refused.
+export const MAX_SAVE_TEXT = 2000;
 export const MAX_BACKUP_BYTES = 50 * 1024 * 1024;
 export function blankLibrary() {
   return { version: VERSION, revision: 0, outings: [] };
@@ -86,7 +89,7 @@ export function validateSource(source) {
   const s = {
     url: url ? safeUrl(url) : "",
     app: source.app,
-    text: field(source.text, "saved text", 2000, true),
+    text: field(source.text, "saved text", MAX_SAVE_TEXT, true),
     savedAt: field(source.savedAt, "save time", 40),
     eventDate: field(source.eventDate, "event date", 10, true),
     expiresAt: field(source.expiresAt, "end date", 10, true),

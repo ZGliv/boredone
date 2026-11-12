@@ -49,7 +49,7 @@ export function normalizeTicketmaster(data, { fetchedAt = new Date().toISOString
     const end = e.dates?.end;
     if (end?.dateTime && !end.noSpecificTime && !end.approximate) { const ms = Date.parse(end.dateTime); if (Number.isFinite(ms) && ms > start.ms) endMs = ms; }
     if (start.allDay && endMs === null) { const next = new Date(Date.UTC(start.wall.y, start.wall.mo - 1, start.wall.d + 1)); endMs = zonedToMs({ y: next.getUTCFullYear(), mo: next.getUTCMonth() + 1, d: next.getUTCDate() }, tz); }
-    events.push(makeEvent({ id: "tm-" + String(e.id).slice(0, 80), title: e.name, venueName: venue.name || "", coords: validCoord(venue.location?.latitude, venue.location?.longitude), start: isoInZone(start.ms, tz), end: endMs !== null ? isoInZone(endMs, tz) : "", url: e.url || "", source: "ticketmaster", sourceName: "Ticketmaster", fetchedAt }));
+    events.push(makeEvent({ id: "tm-" + String(e.id).slice(0, 80), title: e.name, venueName: venue.name || "", coords: validCoord(venue.location?.latitude, venue.location?.longitude), start: isoInZone(start.ms, tz), end: endMs !== null ? isoInZone(endMs, tz) : "", allDay: start.allDay, url: e.url || "", source: "ticketmaster", sourceName: "Ticketmaster", fetchedAt }));
   }
   return { events, skipped, page: data?.page || null };
 }
