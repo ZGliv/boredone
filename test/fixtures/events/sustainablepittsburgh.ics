@@ -1,0 +1,56 @@
+BEGIN:VCALENDAR
+X-BOREDONE-RECORDED-FROM:https://sustainablepittsburgh.org/events-calendar/?ical=1
+X-BOREDONE-RECORDED-AT:2026-11-12T00:03:58Z
+X-BOREDONE-NOTE:Recorded with one GET for parser tests. Not served to users.
+VERSION:2.0
+PRODID:-//Sustainable Pittsburgh - ECPv6.14.2//NONSGML v1.0//EN
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+X-WR-CALNAME:Sustainable Pittsburgh
+X-ORIGINAL-URL:https://sustainablepittsburgh.org
+X-WR-CALDESC:Events for Sustainable Pittsburgh
+REFRESH-INTERVAL;VALUE=DURATION:PT1H
+X-Robots-Tag:noindex
+X-PUBLISHED-TTL:PT1H
+BEGIN:VTIMEZONE
+TZID:America/New_York
+BEGIN:DAYLIGHT
+TZOFFSETFROM:-0500
+TZOFFSETTO:-0400
+TZNAME:EDT
+DTSTART:20260308T070000
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:-0400
+TZOFFSETTO:-0500
+TZNAME:EST
+DTSTART:20261101T060000
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+DTSTART;TZID=America/New_York:20261118T074500
+DTEND;TZID=America/New_York:20261118T130000
+DTSTAMP:20261111T190401
+CREATED:20260903T190014Z
+LAST-MODIFIED:20260904T131054Z
+UID:24599-1794987900-1795006800@sustainablepittsburgh.org
+SUMMARY:Sustainable Pittsburgh Summit: Grounded Locally\, Connected Globally
+DESCRIPTION:Event Description:\n\n\n\nSustainability is shaped by the systems that power our economy and communities\, from energy and supply chains to workforce\, capital\, technology\, and beyond. \n\n\n\nAt a moment of rapid change\, the conversations around climate\, energy\, technology\, and artificial intelligence are converging in new and consequential ways. Pittsburgh is uniquely positioned at the center of these shifts: a region built on industry\, powered by world-class research and talent\, and increasingly recognized as a hub for innovation and emerging technology. \n\n\n\nSustainable Pittsburgh’s signature annual summit brings these forces together to explore a defining question: How can we navigate and understand global change while building solutions that create lasting impact here at home? \n\n\n\nThrough dynamic conversations\, real-world examples\, and insights from organizations already leading the way\, the summit will examine how decisions made in Pittsburgh are influenced by larger global systems and how the choices we make here can help shape what comes next. \n\n\n\nThis is where big-picture thinking meets local action. Where sustainability\, industry\, innovation\, and technology intersect. And where the people building Pittsburgh’s next chapter come together to explore what’s possible.  \n\n\n\nWho Should Attend:\n\n\n\nThe Sustainable Pittsburgh Summit is for leaders and changemakers who are shaping the future of Southwestern Pennsylvania. Whether you’re advancing sustainability within your organization\, investing in the region\, or looking for practical ways to turn ideas into action\, you’ll find valuable connections and conversations here. \n\n\n\nThis Summit is for: \n\n\n\n\nBusiness & organizational leaders looking to connect sustainability with strategy\, growth\, resilience\, and long-term value\n\n\n\nSustainability professionals leading environmental and social initiatives within their organizations\n\n\n\nExecutives & decision-makers navigating global trends and their implications for Southwestern Pennsylvania\n\n\n\nInvestors\, funders & financial leaders interested in financing innovation and sustainable solutions\n\n\n\nEntrepreneurs & innovators developing new ideas\, technologies\, and approaches to regional challenges\n\n\n\nPublic-sector & civic leaders working to advance a thriving\, resilient region\n\n\n\nUniversity & research leaders advancing sustainability\, innovation\, and stronger connections with industry\n\n\n\nWorkforce & talent leaders preparing people and organizations for changing skills\, technologies\, and industry needs \n\n\n\nNonprofit & community leaders building partnerships and creating meaningful impact\n\n\n\nProfessionals & emerging leaders looking to learn from peers\, expand their networks\, and bring new ideas back to their organizations\n\n\n\n\n\n\nOrganizer\n\n\n\n\n\n\n\nVenue
+URL:https://sustainablepittsburgh.org/event/sustainable-pittsburgh-summit-grounded-locally-connected-globally/
+CATEGORIES:Featured Events,Sustainable Pittsburgh Events
+ATTACH;FMTTYPE=image/jpeg:https://sustainablepittsburgh.org/wp-content/uploads/2023/07/sp-event-background-default.jpg
+END:VEVENT
+BEGIN:VEVENT
+DTSTART;TZID=America/New_York:20261120T003000
+DTEND;TZID=America/New_York:20261120T130000
+DTSTAMP:20261111T190401
+CREATED:20261009T133058Z
+LAST-MODIFIED:20261009T133459Z
+UID:24739-1795134600-1795179600@sustainablepittsburgh.org
+SUMMARY:Energy Affordability – Residential Sector
+DESCRIPTION:Presented by The GreenGov Council and Penn State Sustainability \n\n\n\nAs energy demand continues to increase\, many are experiencing financial difficulties. Join in to learn how organizations are working to relieve some of these challenges across Pennsylvania. \n\n\n\n\n\n \n\n\n\n\n\n \n\n\n\n\n\nOrganizer\n\n\n\n\n\nVenue
+URL:https://sustainablepittsburgh.org/event/energy-affordability-residential-sector/
+LOCATION:Virtual
+CATEGORIES:Community Events
+END:VEVENT
+END:VCALENDAR
