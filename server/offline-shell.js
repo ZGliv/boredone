@@ -7,16 +7,22 @@ const photos = JSON.parse(readFileSync(new URL('../src/data/photo-previews.json'
 export function offlineShellPlugin() {
   return {
     name: "boredone-offline-shell", apply: "build",
-    transformIndexHtml(){return [{tag:'link',attrs:{rel:'preload',as:'image',href:photos.atlas,fetchpriority:'high'},injectTo:'head'}];},
     generateBundle(_options, bundle) {
-      const publicFiles = ["/theme-init.js","/world/icons/sun.svg","/world/icons/moon.svg","/world/icons/corners-out.svg",photos.atlas,"/world/icons/map-trifold.svg","/world/icons/list.svg","/world/icons/bookmark-simple.svg","/world/icons/arrow-right.svg",...["garden", "cafe", "gallery", "play", "food", "bar", "museum", "film"].flatMap(kind => ["regular", "fill"].map(weight => `/world/icons/${kind}-${weight}.svg`)), "/cities.json", "/world/landmarks.png", "/manifest.webmanifest", "/app-icons-v2/icon-32.png", "/app-icons-v2/icon-180.png", "/app-icons-v2/icon-192.png", "/app-icons-v2/icon-512.png"];
+      const publicFiles = [photos.atlas, "/manifest.webmanifest", "/app-icons-v2/icon-32.png", "/app-icons-v2/icon-180.png", "/app-icons-v2/icon-192.png", "/app-icons-v2/icon-512.png"];
       const guidePhotos = readdirSync(new URL("../public/guide-photos/",import.meta.url)).filter(name => /\.(jpg|png|webp)$/.test(name)).map(name=>"/guide-photos/"+name);
-      const assets = ["/index.html", ...Object.keys(bundle).filter(name => /\.(js|css)$/.test(name)).map(name => "/" + name), ...publicFiles];
+      // City packs are large; only the default one installs with the shell.
+      // Others are cached the first time they are opened.
+      const isPack = name => /city-packs\//.test(bundle[name]?.facadeModuleId || "");
+      const packs = Object.keys(bundle).filter(isPack);
+      const later = packs.filter(name => !/city-packs\/pittsburgh\.json/.test(bundle[name].facadeModuleId));
+      const assets = ["/index.html", ...Object.keys(bundle).filter(name => /\.(js|css|woff2)$/.test(name) && !later.includes(name)).map(name => "/" + name), ...publicFiles];
       const hash = createHash("sha256").update(JSON.stringify(assets)).update(readFileSync(new URL("../index.html", import.meta.url)));
       for (const file of publicFiles) hash.update(readFileSync(new URL("../public" + file, import.meta.url)));
       const cache = "boredone-shell-v" + hash.digest("hex").slice(0,16);
       this.emitFile({type:"asset", fileName:"sw.js", source: `
 const CACHE = ${JSON.stringify(cache)};
+const PACKS = new Set(${JSON.stringify(later.map(name => "/" + name))});
+const PACK_CACHE = 'boredone-city-packs-v1';
 const ASSETS = ${JSON.stringify(assets)};
 const PHOTO_CACHE = 'boredone-photo-previews-v1';
 const PHOTO_PATHS = new Set(${JSON.stringify([...new Set(Object.values(photos.photos).map(p=>p.card))])});
@@ -76,6 +82,7 @@ self.addEventListener('activate', event => {
         await caches.delete(key);
       } catch {} // Keep the old cache if copying fails; never discard its photos.
     }
+    try {const cache=await caches.open(PACK_CACHE);for(const request of await cache.keys())if(!PACKS.has(new URL(request.url).pathname))await cache.delete(request);}catch{}
     try {const cache=await caches.open(PHOTO_CACHE);for(const request of await cache.keys())if(!PHOTO_PATHS.has(new URL(request.url).pathname))await cache.delete(request);}catch{}
     await self.clients.claim();
   })());
@@ -110,6 +117,15 @@ self.addEventListener('fetch', event => {
         }
         return response;
       } finally {if(finishWrite)finishWrite();}
+    })());
+  } else if (PACKS.has(url.pathname)) {
+    // Content-hashed city pack: cache first, kept until a release drops it.
+    event.respondWith((async () => {
+      let cache;
+      try { cache = await caches.open(PACK_CACHE); const hit = await cache.match(url.pathname); if (hit) return hit; } catch {}
+      const response = await fetch(event.request);
+      if (cache && response.ok) event.waitUntil(cache.put(url.pathname, response.clone()).catch(() => {}));
+      return response;
     })());
   } else if (event.request.mode === 'navigate') {
     const fallback = () => caches.open(CACHE).then(cache => cache.match('/index.html'));

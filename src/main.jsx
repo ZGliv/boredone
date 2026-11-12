@@ -3,9 +3,10 @@ import { createRoot } from "react-dom/client";
 import App from "./app/App";
 import { guestStore } from "./app/guestStore";
 import JournalRoot from "./JournalRoot";
+import "./ui/fonts.js";
+import "./ui/tokens.css";
+import "./ui/ui.css";
 import "./styles.css";
-import "./world.css";
-import "./theme.css";
 
 if (import.meta.env.PROD && "serviceWorker" in navigator) {
   navigator.serviceWorker.register("/sw.js").then(() => navigator.serviceWorker.ready)

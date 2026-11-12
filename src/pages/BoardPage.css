@@ -1,0 +1,8 @@
+.board-total { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--s2) var(--s3); margin-top: var(--s3); font-weight: 400; }
+.board-done { font-size: var(--display-xl); color: var(--gold); }
+.board-of { font-family: var(--font-display); font-weight: 800; font-size: var(--display-sm); line-height: 1; font-variant-numeric: tabular-nums; }
+.board-hoods { list-style: none; margin: 0; padding: 0; }
+.board-hoods li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--s3); min-height: 48px; border-bottom: var(--hair); }
+.board-hood-name { font-weight: 600; }
+.board-hood-count { color: var(--muted); font-size: var(--text-sm); }
+@media (min-width: 640px) { .board-hoods { columns: 2; column-gap: var(--s6); } .board-hoods li { break-inside: avoid; } }

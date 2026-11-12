@@ -80,16 +80,16 @@ test('outing actions handle a null-place save in the library and in the delete p
   let committed = null, editor = 'unset', prompt = '';
   const ref = {current: {outings: library}};
   const journal = {library: {outings: library}, libraryRef: ref, commit: async rows => { committed = rows; }, demoMode: false, setStorageError: e => { throw Error(e); }};
-  const actions = useOutingActions({journal, account: null, page: 'plans', navigate() {}, setEditor: v => { editor = v; }, setMemoryDetail() {}, setSelected() {}, setMessage() {}});
+  const actions = useOutingActions({journal, account: null, navigate() {}, setEditor: v => { editor = v; }, toast() {}});
   actions.addPlan(place('p1', 'Planned Bar'));
   assert.equal(editor.outing.id, 'plan');
   actions.addPlan(place('p5', 'Fresh'));
   assert.equal(editor.isNew, true);
   globalThis.window = {confirm: message => { prompt = message; return true; }};
   try { await actions.remove(noteSave); } finally { delete globalThis.window; }
-  assert.match(prompt, /^Delete “that ramen place Sam mentioned” and/);
+  assert.match(prompt, /^Delete “that ramen place Sam mentioned”\?$/);
   assert.deepEqual(committed.map(o => o.id), library.filter(o => o.id !== noteSave.id).map(o => o.id));
-  await assert.rejects(actions.saveOuting(outing('new-plan', 'planned', place('p1', 'Planned Bar')), stamp, true), /already in your plans/);
+  await assert.rejects(actions.saveOuting(outing('new-plan', 'planned', place('p1', 'Planned Bar')), stamp, true), /Already planned/);
 });
 
 test('draft recovery labels an unresolved save draft without crashing', async () => {

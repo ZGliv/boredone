@@ -1,0 +1,8 @@
+.journal-list { margin: var(--s4) 0 var(--s3); }
+.journal-list .row .btn { min-height: 40px; padding: 0 var(--s3); }
+.memory { display: grid; gap: var(--s3); }
+.memory-back { justify-self: start; margin-left: calc(var(--s2) * -1); }
+.memory-title { font-family: var(--font-display); font-weight: 800; font-size: var(--display-md); line-height: var(--leading-tight); }
+.memory-facts { color: var(--muted); }
+.memory-notes { white-space: pre-wrap; font-size: var(--text-lg); }
+.memory-actions { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s3); }

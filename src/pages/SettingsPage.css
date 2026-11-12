@@ -1,0 +1,8 @@
+.settings-back { margin: 0 0 var(--s2) calc(var(--s2) * -1); }
+.settings-actions { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s4); }
+.settings-actions label { cursor: pointer; }
+.settings-actions .is-disabled { opacity: 0.4; cursor: not-allowed; }
+.settings-actions label:focus-within { outline: 2px solid var(--gold); outline-offset: 2px; }
+.settings-facts { list-style: none; margin: 0; padding: 0; }
+.settings-facts li { padding: var(--s3) 0; border-bottom: var(--hair); color: var(--muted); font-size: var(--text-sm); }
+.settings-facts a { color: var(--ink); text-decoration-color: var(--line); text-underline-offset: 3px; }

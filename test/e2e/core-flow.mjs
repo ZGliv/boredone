@@ -47,11 +47,10 @@ function snapshot() {
     }),
     links: pick("a[href]"),
     dialog: pick("dialog[open] #dialog-title, [role=\"dialog\"] #dialog-title"),
-    placeOpen: !!document.querySelector(".place-inspector, .place-dock"),
-    mapCanvas: !!document.querySelector(".world-canvas .maplibregl-map, .world-canvas canvas"),
-    placeCards: document.querySelectorAll(".place-card").length,
-    planCards: document.querySelectorAll(".plan-card").length,
-    timelineCards: document.querySelectorAll(".timeline-card").length,
+    sheet: pick(".sheet .sheet-title"),
+    mapCanvas: !!document.querySelector(".world-map canvas"),
+    count: pick(".map-count, .board-total").join(" | "),
+    rows: document.querySelectorAll(".row").length,
   };
 }
 
@@ -67,75 +66,71 @@ async function run(chromium, [width, height], out) {
     await page.waitForTimeout(150);
     const s = await page.evaluate(snapshot);
     out.push(`## ${step}`, `hash: ${s.hash}`, `headings: ${s.headings.join(" | ")}`, `notices: ${s.notices.join(" | ")}`,
-      `dialog: ${s.dialog.join(" | ")}`, `place open: ${s.placeOpen}`, `map canvas: ${s.mapCanvas}`,
-      `cards: places ${s.placeCards}, plans ${s.planCards}, timeline ${s.timelineCards}`,
+      `dialog: ${s.dialog.join(" | ")}`, `sheet: ${s.sheet.join(" | ")}`, `map canvas: ${s.mapCanvas}`,
+      `count: ${s.count}`, `rows: ${s.rows}`,
       `buttons: ${s.buttons.join(" | ")}`, `links: ${s.links.join(" | ")}`, "");
   };
-  const find = () => page.locator(".world-screen");
+  const tab = (name) => page.locator(`a.tab[href="#${name}"]`).click();
 
-  // 1. Load: Pittsburgh map, nothing selected.
+  // 1. Load: the map, nothing selected, the city count.
   await page.goto(ORIGIN + "/");
-  await find().waitFor();
-  await record("1 load");
+  await page.locator(".map-count").waitFor();
+  await record("1 map");
 
-  // 2. Open the list.
-  await page.getByRole("button", { name: "List view" }).click();
-  await page.locator(".world-place-list").waitFor();
-  await record("2 list open");
+  // 2. City switcher lists the packs.
+  await page.locator(".city-switcher").click();
+  await page.locator(".sheet").waitFor();
+  await record("2 city switcher");
+  await page.keyboard.press("Escape");
+  await page.locator(".sheet").waitFor({ state: "detached" });
 
-  // 3. Open the first place.
-  const firstName = (await page.locator(".place-card-open strong").first().innerText()).trim();
-  await page.locator(".place-card-open").first().click();
-  await page.locator("#place-title").waitFor();
-  await record(`3 place open (${firstName})`);
+  // 3. Save a note to the Pile.
+  await tab("pile");
+  await page.getByRole("button", { name: "Add to pile" }).click();
+  await page.locator("#pile-add-input").fill("that ramen place Sam mentioned");
+  await page.locator(".pile-add").getByRole("button", { name: "Save" }).click();
+  await page.locator(".row").first().waitFor();
+  await record("3 pile with a save");
 
-  // 4. Make a plan and save it.
-  await page.locator(".inspector-actions").getByRole("button", { name: /Make a plan/ }).click();
+  // 4. Board.
+  await tab("board");
+  await page.locator(".board-total").waitFor();
+  await record("4 board");
+
+  // 5. Plan something from the Journal.
+  await tab("journal");
+  await page.getByRole("radio", { name: /Planned/ }).click();
+  await page.getByRole("button", { name: "Add a plan" }).click();
   await page.locator("#dialog-title").waitFor();
-  await record("4 plan editor");
+  await record("5 plan editor");
+  await page.getByLabel("Name").fill("Row House Cinema");
   await page.getByRole("button", { name: "Save plan" }).click();
   await page.locator("#dialog-title").waitFor({ state: "detached" });
-  await page.locator(".notice.success").waitFor();
-  await record("5 plan saved");
+  await record("6 plan saved");
 
-  // 5. Reload: the plan survives.
+  // 6. Reload: the plan and the save survive.
   await page.reload();
-  await find().waitFor();
-  await page.goto(ORIGIN + "/#plans");
-  await page.locator(".plan-card").first().waitFor();
-  await record("6 plans after reload");
+  await page.getByRole("radio", { name: /Planned/ }).click();
+  await page.locator(".row").first().waitFor();
+  await record("7 journal after reload");
 
-  // 6. Mark it visited as a memory.
-  await page.locator(".plan-card").first().getByRole("button", { name: "I went ↗" }).click();
+  // 7. Mark it done.
+  await page.getByRole("button", { name: "Went" }).first().click();
   await page.locator("#dialog-title").waitFor();
-  await record("7 visit editor");
-  await page.getByRole("button", { name: "Save memory" }).click();
+  await record("8 done editor");
+  await page.getByRole("button", { name: "Save to journal" }).click();
+  await page.locator("#dialog-title").waitFor({ state: "detached" });
+  await page.getByRole("radio", { name: /Done/ }).click();
+  await page.locator(".row").first().click();
   await page.locator("#memory-heading").waitFor();
-  await record("8 memory detail");
-  await page.getByRole("button", { name: "← All memories" }).click();
-  await page.locator(".timeline-card").first().waitFor();
-  await record("9 memories timeline");
-
-  // 7. Tonight bookmark add and remove.
-  await page.locator(".brand").click();
-  await find().waitFor();
-  await page.getByRole("button", { name: "List view" }).click();
-  await page.locator(".place-card-open").first().click();
-  await page.locator("#place-title").waitFor();
-  await page.getByRole("button", { name: "Save for tonight" }).click();
-  await page.getByRole("button", { name: "Saved for tonight" }).waitFor();
-  await record("10 tonight added");
-  await page.getByRole("button", { name: /^Tonight, / }).click();
-  await page.locator(".tonight-panel").waitFor();
-  await record("11 tonight panel");
-  await page.locator(".tonight-remove").first().click();
-  await page.locator(".tonight-empty").waitFor();
-  await record("12 tonight removed");
+  await record("9 memory");
+  await page.getByRole("button", { name: "Journal" }).click();
+  await record("10 journal");
 
   // 8. Settings.
-  await page.goto(ORIGIN + "/#settings");
-  await page.getByRole("heading", { name: "Your journal" }).waitFor();
-  await record("13 settings");
+  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("heading", { name: "Settings" }).waitFor();
+  await record("11 settings");
 
   out.push(`page errors: ${errors.length ? errors.join(" | ") : "none"}`, "");
   await browser.close();

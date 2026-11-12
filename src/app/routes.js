@@ -1,21 +1,17 @@
-import { localDate, MAX_BACKUP_BYTES } from "../model";
+import { localDate, MAX_BACKUP_BYTES } from "../model.js";
 
-export const START_CITY = {
-  name: "Pittsburgh",
-  label: "Pittsburgh, Pennsylvania, US",
-  lat: 40.44062,
-  lng: -79.99589,
-};
+// The four tabs, then pages reached from inside them. Old links still land.
 export const TABS = [
-  ["find", "Find it"],
-  ["plans", "Do it"],
-  ["memories", "Remember"],
+  ["map", "Map", "map"],
+  ["pile", "Pile", "pile"],
+  ["board", "Board", "board"],
+  ["journal", "Journal", "journal"],
 ];
-export function pageFromHash() {
-  const value = location.hash.slice(1);
-  return [...TABS.map((t) => t[0]), "settings"].includes(value)
-    ? value
-    : "find";
+export const PAGES = [...TABS.map((tab) => tab[0]), "settings"];
+const OLD = { find: "map", plans: "journal", memories: "journal" };
+export function pageFromHash(hash = location.hash) {
+  const value = hash.slice(1);
+  return PAGES.includes(value) ? value : OLD[value] || "map";
 }
 export function download(data,limit=MAX_BACKUP_BYTES) {
   const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -23,7 +19,7 @@ export function download(data,limit=MAX_BACKUP_BYTES) {
   });
   if (blob.size > limit)
     throw new Error(
-      `This backup exceeds ${limit/1024/1024} MB. Your journal has not changed.`,
+      `Backup is over ${limit/1024/1024} MB. Nothing changed.`,
     );
   const url = URL.createObjectURL(blob),
     a = document.createElement("a");

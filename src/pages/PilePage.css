@@ -1,0 +1,8 @@
+.pile-count { margin-top: var(--s1); color: var(--muted); font-size: var(--text-sm); }
+.pile-age { color: var(--blue); }
+.page-head .btn-primary.btn-icon { width: 48px; min-height: 48px; border-radius: 50%; color: var(--on-gold); }
+.pile-add { display: grid; gap: var(--s3); }
+.pile-add textarea { width: 100%; min-height: 96px; padding: var(--s3); border: var(--hair); border-radius: var(--r-md); background: var(--night); color: var(--ink); font-size: var(--text-lg); resize: vertical; }
+.pile-add textarea::placeholder { color: var(--faint); }
+.pile-add textarea:focus { outline: none; border-color: var(--muted); }
+.pile-add-error { color: var(--ink); font-size: var(--text-sm); }

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { MAX_PHOTOS, localDate, validateOuting } from "./model";
 import { resizePhoto, writeDraft, deleteDraft } from "./storage";
+import Icon from "./ui/Icon.jsx";
 export function Modal({ title, onClose, children, wide = false }) {
   const ref = useRef(null);
   useEffect(() => {
@@ -22,9 +23,9 @@ export function Modal({ title, onClose, children, wide = false }) {
         <button
           className="icon-button"
           onClick={onClose}
-          aria-label="Close dialog"
+          aria-label="Close"
         >
-          ×
+          <Icon name="close" size={22} />
         </button>
       </div>
       {children}
@@ -58,7 +59,7 @@ function OutingEditor({ outing, onClose, onSave, isNew = false, people = [], rec
   const disposed=useRef(false);
   useEffect(()=>()=>{disposed.current=true;ended.current=true;clearTimeout(timer.current);},[]);
   const timer=useRef(), writes=useRef(Promise.resolve()), ended=useRef(false);
-  const [draftStatus,setDraftStatus]=useState(recovery?'Draft restored on this device.':'');
+  const [draftStatus,setDraftStatus]=useState(recovery?'Draft restored':'');
   function record(value) { return {version:1,id:draftId.current,isNew,originalStamp:recovery?.originalStamp || outing.updatedAt,savedAt:new Date(Math.max(Date.now(),(Date.parse(lastDraftStamp.current)||0)+1)).toISOString(),previousSavedAt:lastDraftStamp.current,outing:value}; }
   function persist(value) {
     const next=writes.current.catch(()=>{}).then(()=>{if(ended.current&&disposed.current)throw Error("Editor closed.");return draftStore.writeDraft(record(value));}).then(saved=>{lastDraftStamp.current=saved.savedAt;return saved;});
@@ -67,8 +68,8 @@ function OutingEditor({ outing, onClose, onSave, isNew = false, people = [], rec
   }
   useEffect(()=>{
     if(!draftsEnabled || !dirty || ended.current)return;
-    setDraftStatus('Saving draft…');
-    timer.current=setTimeout(()=>{persist(draft).then(()=>{if(!ended.current)setDraftStatus('Draft saved on this device.');}).catch(e=>setDraftStatus(e.message));},250);
+    setDraftStatus('Saving draft');
+    timer.current=setTimeout(()=>{persist(draft).then(()=>{if(!ended.current)setDraftStatus('Draft saved');}).catch(e=>setDraftStatus(e.message));},250);
     return ()=>clearTimeout(timer.current);
   },[draft,dirty,draftsEnabled]);
   async function keepForLater() {
@@ -92,7 +93,7 @@ function OutingEditor({ outing, onClose, onSave, isNew = false, people = [], rec
   async function close() {
     if (
       (dirty || photoBusy || recovery) &&
-      !window.confirm("Discard the changes to this outing?")
+      !window.confirm("Discard changes?")
     )
       return;
     clearTimeout(timer.current);ended.current=true;
@@ -103,7 +104,7 @@ function OutingEditor({ outing, onClose, onSave, isNew = false, people = [], rec
     const files = [...event.target.files];
     event.target.value = "";
     if (files.length + draft.photos.length > MAX_PHOTOS) {
-      setError(`Keep up to ${MAX_PHOTOS} photos per memory.`);
+      setError(`${MAX_PHOTOS} photos max.`);
       return;
     }
     setPhotoBusy(true);
@@ -147,7 +148,7 @@ function OutingEditor({ outing, onClose, onSave, isNew = false, people = [], rec
   return (
     <Modal
       title={
-        memory ? "Save a visit" : isNew ? "Make a plan" : "Edit your plan"
+        memory ? "Done" : isNew ? "Plan" : "Edit plan"
       }
       onClose={busy ? () => {} : close}
     >
@@ -156,23 +157,21 @@ function OutingEditor({ outing, onClose, onSave, isNew = false, people = [], rec
           {draft.place.source === "You" ? (
             <>
               <label>
-                Place or activity
+                Name
                 <input
                   required
                   maxLength={180}
                   value={draft.place.name}
-                  placeholder="An evening at the planetarium"
                   onChange={(e) =>
                     update({ place: { ...draft.place, name: e.target.value } })
                   }
                 />
               </label>
               <label>
-                Location
+                Where
                 <input
                   maxLength={600}
                   value={draft.place.address}
-                  placeholder="A neighborhood, city or address"
                   onChange={(e) =>
                     update({
                       place: { ...draft.place, address: e.target.value },
@@ -181,11 +180,10 @@ function OutingEditor({ outing, onClose, onSave, isNew = false, people = [], rec
                 />
               </label>
               <label>
-                Category
+                Kind
                 <input
                   maxLength={100}
                   value={draft.place.category}
-                  placeholder="Outdoors, food, music…"
                   onChange={(e) =>
                     update({
                       place: { ...draft.place, category: e.target.value },
@@ -198,7 +196,7 @@ function OutingEditor({ outing, onClose, onSave, isNew = false, people = [], rec
             <div className="outing-summary">
               <span className="kicker">{draft.place.category}</span>
               <h3>{draft.place.name}</h3>
-              <p>{draft.place.address || "Location saved with your plan"}</p>
+              {draft.place.address && <p>{draft.place.address}</p>}
             </div>
           )}
           {memory && <section className="visit-photo-picker">              <div className="photo-label">
@@ -219,9 +217,6 @@ function OutingEditor({ outing, onClose, onSave, isNew = false, people = [], rec
                   />
                 </label>
               </div>
-              <p className="hint">
-                {syncEnabled?"Save this visit to sync its photos with your account.":"Saved on this device, not backed up online."} JPEG, PNG or WebP; resized for your album.
-              </p>
               <div className="photo-grid">
                 {draft.photos.map((src, i) => (
                   <div key={src.slice(-50) + i}>
@@ -247,7 +242,7 @@ function OutingEditor({ outing, onClose, onSave, isNew = false, people = [], rec
           <datalist id="journal-companions">{people.map(person=><option value={person} key={person}/>)}</datalist>
           <div className="form-row">
             <label>
-              {memory ? "Date visited" : "When (optional)"}
+              {memory ? "Date" : "When"}
               <input
                 type="date"
                 required={memory}
@@ -263,10 +258,9 @@ function OutingEditor({ outing, onClose, onSave, isNew = false, people = [], rec
               />
             </label>
             <label>
-              Who with? (optional)
+              With
               <input
                 maxLength={200}
-                placeholder="Names, separated by commas"
                 list="journal-companions"
                 autoComplete="off"
                 value={draft.with}
@@ -274,17 +268,12 @@ function OutingEditor({ outing, onClose, onSave, isNew = false, people = [], rec
               />
             </label>
           </div>
-          <details className="visit-extras" open={!memory || undefined}><summary>{memory ? "Notes & rating (optional)" : "Plan details"}</summary>
+          <details className="visit-extras" open={!memory || undefined}><summary>{memory ? "Notes and rating" : "Notes"}</summary>
           <label>
-            {memory ? "What do you want to remember?" : "Your plan"}
+            Notes
             <textarea
               rows={4}
               maxLength={6000}
-              placeholder={
-                memory
-                  ? "The good parts, the unexpected parts, what you’d do again…"
-                  : "What caught your eye? Anything to bring or book?"
-              }
               value={draft.notes}
               onChange={(e) => update({ notes: e.target.value })}
             />
@@ -292,17 +281,17 @@ function OutingEditor({ outing, onClose, onSave, isNew = false, people = [], rec
           {memory && (
             <>
               <label>
-                Would you go again?
+                Rating
                 <select
                   value={draft.rating}
                   onChange={(e) => update({ rating: Number(e.target.value) })}
                 >
-                  <option value="0">Leave unrated</option>
-                  <option value="5">5 · Absolutely</option>
-                  <option value="4">4 · Glad I went</option>
-                  <option value="3">3 · It was okay</option>
-                  <option value="2">2 · Probably not</option>
-                  <option value="1">1 · Not for me</option>
+                  <option value="0">None</option>
+                  <option value="5">Loved it</option>
+                  <option value="4">Good</option>
+                  <option value="3">Fine</option>
+                  <option value="2">Meh</option>
+                  <option value="1">Not again</option>
                 </select>
               </label>
 
@@ -311,7 +300,7 @@ function OutingEditor({ outing, onClose, onSave, isNew = false, people = [], rec
           </details>
         </fieldset>
         {draftsEnabled && draftStatus && <p className="hint" role="status">{draftStatus}</p>}
-        {photoBusy && <p role="status">Preparing your photos…</p>}
+        {photoBusy && <p role="status">Preparing photos</p>}
         {error && (
           <p ref={errorRef} role="alert" className="notice error">
             {error}
@@ -329,7 +318,7 @@ function OutingEditor({ outing, onClose, onSave, isNew = false, people = [], rec
             Cancel
           </button>
           <button type="submit" disabled={busy || photoBusy}>
-            {busy ? "Saving…" : memory ? "Save memory" : "Save plan"}
+            {busy ? "Saving" : memory ? "Save to journal" : "Save plan"}
           </button>
         </div>
       </form>
