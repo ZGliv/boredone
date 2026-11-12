@@ -49,7 +49,14 @@ function ageText(days){
  const months=Math.floor(days/30);return `Saved ${months} month${months===1?'':'s'} ago`;
 }
 const hasCoords=x=>x&&typeof x.lat==='number'&&typeof x.lng==='number'&&Number.isFinite(x.lat)&&Number.isFinite(x.lng);
-const groupOf=place=>venueGroup(place.category)||placeKind(place.category);
+const groupOf=place=>venueGroup(place.category)||placeKind(place.category||'');
+// An event's own offset is the venue's wall clock (and survives a DST change
+// overnight); a UTC or offset-less time falls back to the caller's zone.
+function offsetOf(value, fallback){
+ const match=/([+-])(\d{2}):?(\d{2})$/.exec(value||'');
+ return match?(match[1]==='-'?-1:1)*(Number(match[2])*60+Number(match[3])):fallback;
+}
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
 // FNV-1a then a 32-bit mix: a stable 0..1 value per (seed, candidate), so the
 // tie-breaking jitter does not depend on the order inputs arrive in.
@@ -130,7 +137,8 @@ export function decideTonight({saves=[], places=[], events=[], outings=[], conte
   const row=visits.get(place.id), r=rating(place.id);
   if(row){
    const ago=today-dayNumber(row.last);
-   if(ago<=RECENT_DAYS){score-=40;reasons.push(ago===0?'You went today':ago===1?'You went yesterday':`You went ${ago} days ago`);}
+   // A visit dated after "now" (clock or zone skew) is not described as past.
+   if(ago>=0&&ago<=RECENT_DAYS){score-=40;reasons.push(ago===0?'You went today':ago===1?'You went yesterday':`You went ${ago} days ago`);}
    if(r>=4){score+=12;reasons.push(`You rated it ${r} last time`);}
   }else{
    const like=loved.get(group);
@@ -157,7 +165,7 @@ export function decideTonight({saves=[], places=[], events=[], outings=[], conte
   if(timing.reason)reasons.push(timing.reason);
   const savedMs=Date.parse(save.source?.savedAt);
   if(Number.isFinite(savedMs)&&savedMs<=now){const days=Math.floor((now-savedMs)/DAY);score+=Math.min(Math.floor(days/7),4);reasons.push(ageText(days));}
-  if(!place){score-=5;reasons.push(`Saved from ${APPS[save.source?.app]||'a link'} · place still needs confirming`);}
+  if(!place){score-=5;const app=APPS[save.source?.app];reasons.push(`${app?`Saved from ${app}`:'Saved'} · place still needs confirming`);}
   reasons.push(...facts.reasons);
   candidates.push({key:`save:${save.id}`, raw:save.id, kind:'save', save, place:place||undefined, score, reasons, group:facts.group});
  }
@@ -176,9 +184,14 @@ export function decideTonight({saves=[], places=[], events=[], outings=[], conte
   if(place&&isSuppressedVenue(place, now))continue;
   const km=distanceTo(event);
   if(maxKm&&km!==null&&km>maxKm){tooFar++;continue;}
-  const at=local(start, offset), reasons=[];
-  if(upcoming)reasons.push(`Starts ${clock(at.hour,at.minute)} tonight`);
-  else{const e=local(end, offset);reasons.push(`On now until ${clock(e.hour,e.minute)}`);}
+  const at=local(start, offsetOf(event.start, offset)), reasons=[];
+  // "Tonight" only for evening and small-hours starts; a midday start is "today".
+  if(upcoming)reasons.push(`Starts ${clock(at.hour,at.minute)} ${at.hour>=17||at.hour<5?'tonight':'today'}`);
+  else{
+   const e=local(end, offsetOf(event.end, offset));
+   // Something running past tonight (an exhibition, a festival) gets its end date, not a bare time.
+   reasons.push(end>tonightEnd?`On now until ${Number(e.date.slice(8,10))} ${MONTHS[Number(e.date.slice(5,7))-1]}`:`On now until ${clock(e.hour,e.minute)}`);
+  }
   let score=60+(energy?.groups.event||0)+(company?.groups.event||0);
   if(event.placeId&&savedPlaceIds.has(event.placeId)){score+=20;reasons.push('At a place you saved');}
   else if(event.placeId&&rating(event.placeId)>=4){score+=10;reasons.push(`You rated ${event.venueName||'the venue'} ${rating(event.placeId)} last time`);}

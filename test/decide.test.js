@@ -383,3 +383,41 @@ test('reasons never mention data the record lacks', () => {
     }
   }
 });
+
+// Review fixes: each case below failed on the builder's commit.
+test('a visit dated after now is never described as "You went -N days ago"', () => {
+  const r = decideTonight({places: [WARREN], outings: [visit(WARREN, '2026-11-20', 0)], context: ctx(), seed: 1});
+  for (const reason of r.picks[0].reasons) assert.ok(!/-\d|You went/.test(reason), reason);
+});
+
+test('a daytime event is "today", not "tonight"', () => {
+  const r = decideTonight({events: [event(HEINZ, '2026-11-14T11:00:00-05:00')], context: ctx({now: '2026-11-14T10:00:00-05:00'}), seed: 1});
+  assert.equal(r.picks[0].reasons[0], 'Starts 11:00 am today');
+});
+
+test('event times use the venue clock across the November DST change', () => {
+  // 00:30 EDT on 1 Nov 2026; the event is 1:30 am EST, after clocks go back.
+  const r = decideTonight({events: [event(HEINZ, '2026-11-01T01:30:00-05:00')], context: ctx({now: '2026-11-01T00:30:00-04:00'}), seed: 1});
+  assert.equal(r.picks[0].reasons[0], 'Starts 1:30 am tonight');
+});
+
+test('a UTC-stamped event is shown in the caller zone', () => {
+  const r = decideTonight({events: [event(HEINZ, '2026-11-14T01:00:00Z')], context: ctx(), seed: 1});
+  assert.equal(r.picks[0].reasons[0], 'Starts 8:00 pm tonight');
+});
+
+test('a long-running event under way gives its end date, not a bare time', () => {
+  const r = decideTonight({events: [event(HEINZ, '2026-10-01T10:00:00-04:00', {end: '2027-01-01T17:00:00-05:00'})], context: ctx(), seed: 1});
+  assert.equal(r.picks[0].reasons[0], 'On now until 1 Jan');
+});
+
+test('a past outing with a null category does not crash the engine', () => {
+  const odd = {...COURTHOUSE, id: 'legacy-null-category', category: null};
+  const r = decideTonight({places: [WARREN], outings: [visit(odd, '2026-11-01', 5)], context: ctx(), seed: 1});
+  assert.equal(r.picks.length, 1);
+});
+
+test('an unresolved save with no known app does not claim it came from a link', () => {
+  const r = decideTonight({saves: [{...save(null), source: {url: '', app: '', text: '', savedAt: '', eventDate: '', expiresAt: ''}}], context: ctx(), seed: 1});
+  assert.deepEqual(r.picks[0].reasons, ['Saved · place still needs confirming']);
+});
