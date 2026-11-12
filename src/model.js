@@ -1,5 +1,12 @@
 export const VERSION = 1;
 export const MAX_OUTINGS = 500;
+// Saves (the Pile) are photo-free pointers of about 1 KB each, so they get their
+// own budget instead of crowding out plans and memories, whose photos are what
+// the 500 limit and the 50 MB backup ceiling actually protect.
+export const MAX_SAVES = 1000;
+export const MAX_RECORDS = MAX_OUTINGS + MAX_SAVES;
+export const SAVE_APPS = ["instagram", "tiktok", "youtube", "google-maps", "web", "note"];
+export const STATUSES = ["saved", "planned", "visited"];
 export const MAX_PHOTOS = 24;
 export const MAX_BACKUP_BYTES = 50 * 1024 * 1024;
 export function blankLibrary() {
@@ -72,11 +79,34 @@ export function validatePlace(place) {
   }
   return p;
 }
+export function validateSource(source) {
+  if (!source || typeof source !== "object" || Array.isArray(source))
+    throw new Error("Invalid save source.");
+  const url = field(source.url, "saved link", 2048, true);
+  const s = {
+    url: url ? safeUrl(url) : "",
+    app: source.app,
+    text: field(source.text, "saved text", 2000, true),
+    savedAt: field(source.savedAt, "save time", 40),
+    eventDate: field(source.eventDate, "event date", 10, true),
+    expiresAt: field(source.expiresAt, "end date", 10, true),
+  };
+  if (url && (!s.url || s.url.length > 2048))
+    throw new Error("Invalid saved link.");
+  if (!SAVE_APPS.includes(s.app)) throw new Error("Invalid save source.");
+  if (!Number.isFinite(Date.parse(s.savedAt)))
+    throw new Error("Invalid save time.");
+  if ((s.eventDate && !validDate(s.eventDate)) || (s.expiresAt && !validDate(s.expiresAt)))
+    throw new Error("Invalid save date.");
+  return s;
+}
 export function validateOuting(outing,{preserveCalendarDate=false}={}) {
   if (!outing || typeof outing !== "object") throw new Error("Invalid outing.");
+  // Only a save may be unresolved (no venue yet); plans and memories need one.
+  const unresolved = outing.status === "saved" && outing.place === null;
   const x = {
     id: field(outing.id, "outing ID", 100),
-    place: validatePlace(outing.place),
+    place: unresolved ? null : validatePlace(outing.place),
     status: outing.status,
     planDate: outing.planDate || "",
     visitDate: outing.visitDate || "",
@@ -87,8 +117,14 @@ export function validateOuting(outing,{preserveCalendarDate=false}={}) {
     updatedAt: field(outing.updatedAt, "update time", 40),
     photos: [],
   };
-  if (!["planned", "visited"].includes(x.status))
+  if (!STATUSES.includes(x.status))
     throw new Error("Invalid outing status.");
+  // Older records and backups have no source; keep them byte-identical so they
+  // neither re-sync nor need the newer database function.
+  if (outing.source !== undefined && outing.source !== null)
+    x.source = validateSource(outing.source);
+  if (unresolved && !x.source)
+    throw new Error("A save needs a link, a note or a place.");
   if (
     !Number.isFinite(Date.parse(x.createdAt)) ||
     !Number.isFinite(Date.parse(x.updatedAt))
@@ -97,7 +133,8 @@ export function validateOuting(outing,{preserveCalendarDate=false}={}) {
   if (
     (x.planDate && !validDate(x.planDate)) ||
     (x.visitDate && !validDate(x.visitDate)) ||
-    (x.status === "visited" && !x.visitDate)
+    (x.status === "visited" && !x.visitDate) ||
+    (x.status === "saved" && x.visitDate)
   )
     throw new Error("Invalid outing date.");
   if (!preserveCalendarDate && x.visitDate > localDate())
@@ -117,15 +154,28 @@ export function validateOuting(outing,{preserveCalendarDate=false}={}) {
   });
   return x;
 }
+export const isSave = (outing) => outing?.status === "saved";
+export function checkCapacity(outings) {
+  const saves = outings.filter(isSave).length;
+  if (outings.length - saves > MAX_OUTINGS)
+    throw new Error(
+      "Your journal supports 500 plans and memories. Export a backup before making space.",
+    );
+  if (saves > MAX_SAVES)
+    throw new Error(
+      "Your saved pile holds up to 1,000 saves. Clear a few before adding more.",
+    );
+  return outings;
+}
 export function validateBackup(value) {
   if (
     value?.app !== "boredone" ||
     value.version !== VERSION ||
     !Array.isArray(value.outings) ||
-    value.outings.length > MAX_OUTINGS
+    value.outings.length > MAX_RECORDS
   )
     throw new Error(
-      "Choose a Boredone backup file (version 1, up to 500 outings).",
+      "Choose a Boredone backup file (version 1, up to 500 plans and memories plus 1,000 saves).",
     );
   const ids = new Set();
   const outings = value.outings.map(validateOuting);
@@ -134,7 +184,7 @@ export function validateBackup(value) {
       throw new Error("The backup contains duplicate outing IDs.");
     ids.add(item.id);
   }
-  return outings;
+  return checkCapacity(outings);
 }
 export function mergeOutings(current, incoming) {
   const combined = new Map(current.map((o) => [o.id, o]));
@@ -150,10 +200,7 @@ export function mergeOutings(current, incoming) {
       updated++;
     }
   }
-  if (combined.size > MAX_OUTINGS)
-    throw new Error(
-      "This would exceed the 500-outing limit. Export your library before making space.",
-    );
+  checkCapacity([...combined.values()]);
   return { outings: [...combined.values()], added, updated };
 }
 export function makeOuting(place) {

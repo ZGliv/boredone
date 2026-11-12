@@ -1,4 +1,4 @@
-import {MAX_OUTINGS,VERSION,backupPayload} from './model.js';
+import {MAX_RECORDS,VERSION,backupPayload,checkCapacity} from './model.js';
 import {canonicalAccountOuting} from './syncQueue.js';
 import {photoBytes} from './syncPhotos.js';
 export const ACCOUNT_BACKUP_BYTES=80*1024*1024;
@@ -12,7 +12,7 @@ export function accountBackup(library){
   return value;
 }
 export function readAccountBackup(value){
-  if(value?.app!=='boredone'||![VERSION,2].includes(value.version)||!Array.isArray(value.outings)||value.outings.length>MAX_OUTINGS)throw Error('Choose a Boredone journal backup with up to 500 outings.');
+  if(value?.app!=='boredone'||![VERSION,2].includes(value.version)||!Array.isArray(value.outings)||value.outings.length>MAX_RECORDS)throw Error('Choose a Boredone journal backup with up to 500 plans and memories plus 1,000 saves.');
   const photos=value.version===2?value.photos:[];
   if(!Array.isArray(photos)||photos.length>12000)throw Error('Invalid backup photos.');
   const ids=new Set(),unique=new Set();
@@ -24,6 +24,7 @@ export function readAccountBackup(value){
     if(ids.has(item.id))throw Error('The backup contains duplicate outing IDs.');ids.add(item.id);
     item.photos.forEach(p=>unique.add(p));return item;
   });
+  checkCapacity(outings);
   let bytes=0;for(const p of unique){bytes+=photoBytes(p).bytes.byteLength;if(bytes>50*1024*1024)throw Error('These photos exceed the 50 MB account photo limit.');}
   return outings;
 }

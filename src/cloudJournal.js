@@ -1,5 +1,5 @@
 import {createClient} from '@supabase/supabase-js';
-import {accountId,UUID,validateAsset,remoteRecord,sameContent} from './syncQueue.js';
+import {accountId,UUID,validateAsset,remoteRecord,sameContent,MAX_RETAINED} from './syncQueue.js';
 import {photoBytes,verifyPhotoData,verifiedPhotoData} from './syncPhotos.js';
 const BUCKET='journal-photos-v1';
 const VISIT_FIELDS='user_id,id,revision,mutation_id,payload,photo_ids,deleted,changed_at';
@@ -91,14 +91,16 @@ export function createCloudJournal({url,publishableKey,owner:ownerId,getSession,
   async function listVisits(){
     const records=new Map();let after;
     // Reset this cursor each pass. Absence from a page never means deletion.
-    for(let page=0;page<6;page++){
+    // Retained rows (live + tombstones) are capped by the server at MAX_RETAINED;
+    // one extra page lets a full final page be confirmed as the end.
+    for(let page=0;page<=Math.ceil(MAX_RETAINED/200);page++){
       const batch=await request(async client=>{
         let query=client.from('journal_visits').select(VISIT_FIELDS).eq('user_id',owner).order('id',{ascending:true}).limit(200);
         if(after!==undefined)query=query.gt('id',after);
         return rows(await query);
       });
       for(const row of batch){remoteRecord(row,owner);const previous=records.get(row.id);if(!previous||row.revision>previous.revision)records.set(row.id,row);}
-      if(records.size>1000)throw new CloudJournalError('server','The account journal exceeded its record limit.');
+      if(records.size>MAX_RETAINED)throw new CloudJournalError('server','The account journal exceeded its record limit.');
       if(batch.length<200)return [...records.values()];
       const cursor=batch.at(-1).id;if(cursor===after)throw new CloudJournalError('server','The account list did not advance.');after=cursor;
     }

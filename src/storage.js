@@ -3,8 +3,9 @@ import {
   blankLibrary,
   validateOuting,
   VERSION,
-  MAX_OUTINGS,
+  MAX_RECORDS,
   MAX_BACKUP_BYTES,
+  checkCapacity,
   backupPayload,
 } from "./model";
 let dbPromise;
@@ -50,11 +51,12 @@ export async function readLibrary() {
         if (
           data.version !== VERSION ||
           !Array.isArray(data.outings) ||
-          data.outings.length > MAX_OUTINGS ||
+          data.outings.length > MAX_RECORDS ||
           !Number.isInteger(data.revision)
         )
           throw new Error();
         data.outings.forEach(validateOuting);
+        checkCapacity(data.outings);
         loaded = data;
       } catch {
         reject(
@@ -68,10 +70,7 @@ export async function readLibrary() {
   });
 }
 export async function writeLibrary(outings, revision, draftId, draftStamp) {
-  if (outings.length > MAX_OUTINGS)
-    throw new Error(
-      "Your journal supports 500 outings. Export before making space.",
-    );
+  checkCapacity(outings);
   outings.forEach(validateOuting);
   if (
     new Blob([JSON.stringify(backupPayload({ outings }), null, 2)]).size >

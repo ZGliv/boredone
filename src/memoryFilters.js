@@ -1,7 +1,10 @@
 // Companion names are comma-separated; existing freeform text remains unchanged.
 export const companions = value => [...new Set((value || '').split(',').map(s => s.trim()).filter(Boolean))];
 const normalized = value => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase();
+// Saves (the Pile) are never memories, even if a caller passes the whole library.
+const remembered = outings => outings.filter(o => o.status !== 'saved' && o.place);
 export function memoryOptions(memories) {
+  memories = remembered(memories);
   const people = new Map(), places = new Map();
   for (const outing of memories) {
     for (const person of companions(outing.with)) {
@@ -17,7 +20,7 @@ export function memoryOptions(memories) {
 }
 export function filterMemories(memories, {query = '', person = '', place = '', month = ''} = {}) {
   const text = normalized(query.trim());
-  return memories.filter(o =>
+  return remembered(memories).filter(o =>
     (!person || companions(o.with).some(p => normalized(p) === normalized(person))) &&
     (!place || o.place.id === place) &&
     (!month || o.visitDate.startsWith(month)) &&
@@ -26,7 +29,7 @@ export function filterMemories(memories, {query = '', person = '', place = '', m
 }
 export function groupMemories(memories) {
   const months = new Map();
-  for (const outing of memories) {
+  for (const outing of remembered(memories)) {
     const key = outing.visitDate.slice(0,7);
     if (!months.has(key)) months.set(key, []);
     months.get(key).push(outing);
