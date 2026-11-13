@@ -1,6 +1,6 @@
 import React from "react";
 import { distanceText, placeLine } from "../city/placeText";
-import { Icon, kindIcon } from "../ui";
+import { Icon, PlaceThumb } from "../ui";
 import { ageWords, clockText, kmFrom, saveTitle, shortAge, sourceName } from "./pile";
 
 // One save in the list. Unplaced saves show their words in quotes and a
@@ -15,7 +15,6 @@ export default function PileRow({ save, place, near, today, now, showClock, canE
     title = save.place.name;
     const km = kmFrom(near, place);
     fact = [placeLine(place), km === null ? "" : distanceText(km)].filter(Boolean).join(", ");
-    glyph = kindIcon(place?.category || save.place.category);
   } else {
     title = text ? `“${saveTitle(save)}”` : sourceName(save);
     const age = ageWords(save.source?.savedAt || save.createdAt, now);
@@ -26,7 +25,9 @@ export default function PileRow({ save, place, near, today, now, showClock, canE
   return (
     <li className={`pile-row${save.place ? "" : " pile-row-loose"}`}>
       <button type="button" className="pile-row-main" onClick={() => onOpen(save)}>
-        <span className="pile-glyph" aria-hidden="true"><Icon name={glyph} size={20} /></span>
+        {save.place
+          ? <PlaceThumb place={place || save.place} state="saved" size={44} />
+          : <span className="pile-glyph" aria-hidden="true"><Icon name={glyph} size={20} /></span>}
         <span className="pile-row-text">
           <span className="pile-row-title">{title}</span>
           <span className="pile-row-fact">

@@ -21,7 +21,7 @@ import "./BoardPage.css";
 const cap = (text) => text[0].toUpperCase() + text.slice(1);
 
 export default function BoardPage() {
-  const { board, progress, places, states, outings, cities, cityId, setCityId, cityStatus, retryCity, navigate } = useApp();
+  const { board, progress, places, placeById, states, outings, cities, cityId, setCityId, cityStatus, retryCity, navigate } = useApp();
   const openOnMap = (place) => navigate(targetHash("map", place.id));
   const [open, setOpen] = useState(null);
   const [allHoods, setAllHoods] = useState(false);
@@ -46,7 +46,7 @@ export default function BoardPage() {
     if (kind === "set") {
       const set = sets.find((s) => s.id === key);
       const standing = close.find((s) => s.id === key);
-      setOpen({ title: set.name, places: set.places.map((p) => board.places[board.placeIndex[p.id]]), count: `${standing?.done ?? 0} of ${set.goal}` });
+      setOpen({ title: set.name, places: set.places.map((p) => placeById.get(p.id) || board.places[board.placeIndex[p.id]]), count: `${standing?.done ?? 0} of ${set.goal}` });
     } else {
       const row = (kind === "hood" ? hoods : kinds).find((r) => (r.name || r.kind) === key);
       const match = kind === "hood" ? (p) => p.neighborhood === key : (p) => p.kind === key;

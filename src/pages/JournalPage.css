@@ -1,22 +1,27 @@
 .journal .page-head { margin-bottom: var(--s3); }
 .journal .page-head .btn-icon { margin-right: calc(var(--s2) * -1); }
 .journal .section-label .t-tab { margin-left: var(--s1); color: var(--faint); }
+.journal-month .section-label { color: var(--gold); }
+.journal-month .section-label .t-tab { color: var(--gold); opacity: 0.7; }
+.journal-plans .section-label { color: var(--blue); }
+.journal-plans .section-label .t-tab { color: var(--blue); opacity: 0.7; }
+.journal { --thumb-cut: var(--body); }
 
 /* Plans: the Do-it list, tonight's first. */
 .plan-row { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--s3); min-height: 64px; border-bottom: var(--hair); }
 .plan-main { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: var(--s3); min-height: 60px; padding: 0; border: 0; background: none; color: var(--ink); text-align: left; cursor: pointer; }
-.plan-main .icon { color: var(--blue); }
 .plan-text { display: grid; gap: 2px; min-width: 0; }
 .plan-name { font-size: var(--text-lg); font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
 .plan-detail { font-size: var(--text-sm); color: var(--muted); font-variant-numeric: tabular-nums; }
 .is-tonight .plan-detail { color: var(--blue); font-weight: 600; }
 .plan-main:active { opacity: 0.6; }
-.plan-done.btn { min-height: 40px; padding: 0 var(--s3); }
+.plan-done.btn { min-height: 40px; padding: 0 var(--s3); border-color: var(--gold-line); }
+.plan-done.btn .icon { color: var(--gold); }
+.plan-done.btn:hover:not(:disabled) { border-color: var(--gold); }
 
 /* Memories */
 .entry { display: grid; grid-template-columns: 56px 1fr; gap: var(--s3); align-items: start; width: 100%; padding: var(--s3) 0; border: 0; border-bottom: var(--hair); background: none; color: var(--ink); text-align: left; cursor: pointer; }
-.entry-photo { width: 56px; height: 56px; object-fit: cover; border-radius: var(--r-md); }
-.entry-mark { display: grid; place-items: center; width: 56px; height: 56px; border: var(--hair); border-radius: var(--r-md); color: var(--gold); }
+.entry-photo { width: 56px; height: 56px; object-fit: cover; border-radius: 13px; outline: 2px solid var(--gold); outline-offset: -2px; }
 .entry-text { display: grid; gap: 2px; min-width: 0; padding-top: 2px; }
 .entry-name { font-size: var(--text-lg); font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
 .entry-facts { font-size: var(--text-sm); color: var(--muted); }

@@ -9,16 +9,19 @@
 import React, { useState } from "react";
 import { useApp } from "../app/AppContext";
 import DraftRecovery from "../app/DraftRecovery";
+import { placeForOuting } from "../city/cityPlaces";
 import { placeLine } from "../city/placeText";
 import { tonightDate } from "../pile/pile";
 import MemoryDetail from "../done/MemoryDetail";
 import { byMonth, factDate, monthName, shortDay, verdictLabel } from "../done/boardView";
-import { Button, Icon, kindIcon } from "../ui";
+import { Button, PlaceThumb } from "../ui";
 import "../done/done.css";
 import "./JournalPage.css";
 
 export default function JournalPage() {
-  const { done, plans, drafts, actions, canEdit, navigate, store, journal } = useApp();
+  const { done, plans, drafts, actions, canEdit, navigate, store, journal, places, placeById } = useApp();
+  // The city's copy of a record's place carries its photo; the record's own does not.
+  const cityPlace = (outing) => placeForOuting(outing, places, placeById) || outing.place;
   const [open, setOpen] = useState(null);
   const memory = open && done.find((o) => o.id === open);
   if (memory) return <MemoryDetail memory={memory} canEdit={canEdit} actions={actions} onBack={() => setOpen(null)} />;
@@ -40,7 +43,7 @@ export default function JournalPage() {
             return (
               <div key={plan.id} className={`plan-row${plan.planDate === today ? " is-tonight" : ""}`}>
                 <button type="button" className="plan-main" disabled={!canEdit} onClick={() => actions.edit(plan)}>
-                  <Icon name={kindIcon(plan.place.category)} size={22} />
+                  <PlaceThumb place={cityPlace(plan)} state="planned" size={44} />
                   <span className="plan-text">
                     <span className="plan-name">{plan.place.name}</span>
                     <span className="plan-detail">{[when, placeLine(plan.place)].filter(Boolean).join(" · ")}</span>
@@ -58,7 +61,7 @@ export default function JournalPage() {
           <h2 className="t-caps section-label">{monthName(group.month)} <span className="t-tab">{group.items.length}</span></h2>
           {group.items.map((item) => (
             <button key={item.id} type="button" className="entry" onClick={() => setOpen(item.id)}>
-              {item.photos[0] ? <img className="entry-photo" src={item.photos[0]} alt="" loading="lazy" /> : <span className="entry-mark"><Icon name={kindIcon(item.place.category)} size={22} /></span>}
+              {item.photos[0] ? <img className="entry-photo" src={item.photos[0]} alt="" loading="lazy" /> : <PlaceThumb place={cityPlace(item)} state="done" size={56} className="entry-mark" />}
               <span className="entry-text">
                 <span className="entry-name">{item.place.name}</span>
                 <span className="entry-facts t-tab">{[factDate(item.visitDate), verdictLabel(item.rating), item.with && `with ${item.with}`].filter(Boolean).join(" · ")}</span>

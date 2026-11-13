@@ -24,9 +24,10 @@ export default function SettingsPage() {
   const [erasing, setErasing] = useState(false);
   const owner = !!account?.owner;
   // What is on this device, in the app's own words: "1 done · 4 saved · 2 planned".
-  const tally = [["visited", "done"], ["saved", "saved"], ["planned", "planned"]]
+  const parts = [["visited", "done"], ["saved", "saved"], ["planned", "planned"]]
     .map(([status, word]) => [outings.filter((o) => o.status === status).length, word])
-    .filter(([n]) => n).map(([n, word]) => `${count(n)} ${word}`).join(" · ");
+    .filter(([n]) => n);
+  const tally = parts.map(([n, word]) => `${count(n)} ${word}`).join(" · ");
 
   async function eraseDevice() {
     if (!(await confirm(tally ? `Delete ${tally}?` : "Delete drafts?", { action: "Delete all" }))) return;
@@ -50,7 +51,9 @@ export default function SettingsPage() {
 
       <h2 className="t-caps section-label">Journal</h2>
       <dl className="settings-facts">
-        <div><dt>{syncLabel(account, journal.library.sync)}</dt><dd className="t-tab">{tally}</dd></div>
+        <div><dt>{syncLabel(account, journal.library.sync)}</dt><dd className="t-tab">{parts.map(([n, word], i) => (
+          <React.Fragment key={word}>{i > 0 && " · "}<span className={word === "done" ? "tally-done" : "tally-pile"}>{count(n)} {word}</span></React.Fragment>
+        ))}</dd></div>
       </dl>
       <div className="settings-actions">
         <Button variant="quiet" disabled={!ready || !outings.length} onClick={backup.exportJournal}>Export backup</Button>

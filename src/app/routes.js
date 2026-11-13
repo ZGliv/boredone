@@ -35,6 +35,18 @@ export function download(data,limit=MAX_BACKUP_BYTES) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
+// Google Maps link that opens the place itself. The name carries the search
+// and the coordinates only centre it, so Maps shows the business card (and
+// the right branch of a chain) instead of an anonymous dropped pin.
 export function directions(place) {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.lat != null ? `${place.lat},${place.lng}` : place.name + " " + place.address)}`;
+  const name = String(place.name || "").trim();
+  const address = String(place.address || "").trim();
+  const hasSpot = Number.isFinite(Number(place.lat)) && Number.isFinite(Number(place.lng)) && place.lat != null && place.lng != null;
+  if (name && hasSpot) {
+    const at = (value) => Number(Number(value).toFixed(5));
+    const query = encodeURIComponent(address ? `${name}, ${address}` : name);
+    return `https://www.google.com/maps/search/${query}/@${at(place.lat)},${at(place.lng)},17z`;
+  }
+  const query = hasSpot ? `${place.lat},${place.lng}` : [name, address].filter(Boolean).join(" ");
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }

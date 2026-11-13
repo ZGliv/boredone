@@ -8,7 +8,7 @@ export default function TabBar({ page, navigate }) {
   return (
     <nav className="tabbar" aria-label="Main">
       {TABS.map(([id, label, icon]) => (
-        <a key={id} href={`#${id}`} className="tab" aria-current={active === id ? "page" : undefined}
+        <a key={id} href={`#${id}`} className={`tab tab-${id}`} aria-current={active === id ? "page" : undefined}
           onClick={(event) => { event.preventDefault(); navigate(id); }}>
           <Icon name={icon} size={24} />
           <span>{label}</span>
