@@ -11,14 +11,14 @@ function storedCity() {
 }
 
 // Loads (once per session) and prepares a city: pack, closures removed,
-// board built, guide notes attached.
+// board built, guide notes and map photos attached.
 export function loadCity(id) {
   if (!loaded.has(id)) {
-    const job = Promise.all([packById(id).load(), import("../data/pittsburgh-editorial.json")])
-      .then(([pack, guide]) => {
+    const job = Promise.all([packById(id).load(), import("../data/pittsburgh-editorial.json"), import("../data/place-photos.json")])
+      .then(([pack, guide, photos]) => {
         const data = pack.default || pack;
         const { board, places } = cityFromPack(data);
-        return { pack: { id, name: data.shortName || data.city, center: data.center, radiusKm: data.radiusKm, builtAt: data.builtAt, source: data.source, licences: data.licences }, board, places: enrichPlaces(places, (guide.default || guide).places) };
+        return { pack: { id, name: data.shortName || data.city, center: data.center, radiusKm: data.radiusKm, builtAt: data.builtAt, source: data.source, licences: data.licences }, board, places: enrichPlaces(places, (guide.default || guide).places, photos.default || photos) };
       });
     loaded.set(id, job);
     job.catch(() => loaded.delete(id));
@@ -51,13 +51,13 @@ export default function useCityData(outings) {
   const states = useMemo(() => placeStates(places, outings), [places, outings]);
   const progress = useMemo(() => (current.board ? boardProgress(current.board, outings) : null), [current.board, outings]);
   return {
-    cities: CITY_PACKS.map(({ id, name }) => ({ id, name })),
+    cities: CITY_PACKS.map(({ id, name, center }) => ({ id, name, center })),
     cityId,
     setCityId,
     status: data.id === cityId ? data.status : "loading",
     error: data.id === cityId ? data.error : "",
     retry: () => setAttempt((n) => n + 1),
-    city: current.pack || { id: cityId, name: packById(cityId).name },
+    city: current.pack || { id: cityId, name: packById(cityId).name, center: packById(cityId).center },
     board: current.board || null,
     places,
     placeById,

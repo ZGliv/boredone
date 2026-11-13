@@ -6,9 +6,10 @@ import { shortDay } from "../done/boardView";
 import { COMPANY, ENERGY, pickDay, sessionDate } from "./tonightModel.js";
 import "./tonight.css";
 
-// Tonight's three, docked under the map. Three heights: "peek" (just the
-// title), "dock" (the three names) and "open" (dials, reasons, actions).
-// Swipe the top edge up or down to move between them; tap it to toggle.
+// Tonight's three, docked under the map. Three heights: "peek" (one slim row:
+// the title and the top pick's name, the default so the map gets the screen),
+// "dock" (the three names) and "open" (dials, reasons, actions). Swipe the top
+// edge up or down to move between them; tap it to show or hide the three.
 //   tonight: useTonight(); mode/setMode; openId/setOpenId (the pick shown as a card)
 //   planOf(pick): the plan standing for the pick's venue, or null
 //   factOf(pick): a board fact for a pick decide gave no reason for
@@ -19,6 +20,7 @@ const weekdayOf = (day) => WEEKDAY_LONG[new Date(`${day}T12:00:00`).getDay()];
 const when = (d) => `${WEEKDAY[d.getDay()]} ${d.getHours() % 12 || 12}:${String(d.getMinutes()).padStart(2, "0")} ${d.getHours() < 12 ? "am" : "pm"}`;
 const UP = { peek: "dock", dock: "open", open: "open" };
 const DOWN = { open: "dock", dock: "peek", peek: "peek" };
+const TAP = { peek: "dock", dock: "peek", open: "dock" };
 
 export default function TonightPanel({ tonight, mode, setMode, openId, setOpenId, planOf, factOf, canEdit, onGo, onDone, onHeight }) {
   const root = useRef(null), drag = useRef(null);
@@ -47,7 +49,7 @@ export default function TonightPanel({ tonight, mode, setMode, openId, setOpenId
     drag.current = null;
     setOffset(0);
     const dx = event.clientX - x, dy = event.clientY - y;
-    if (Math.abs(dx) < 6 && Math.abs(dy) < 6) { setMode(mode === "open" ? "dock" : UP[mode]); return; }
+    if (Math.abs(dx) < 6 && Math.abs(dy) < 6) { setMode(TAP[mode]); return; }
     const action = sheetDragAction({ dx, dy, elapsed: performance.now() - t, expanded: mode === "open" });
     if (action === "expand") setMode(UP[mode]);
     else if (action === "collapse" || action === "dismiss") setMode(DOWN[mode]);
@@ -59,11 +61,13 @@ export default function TonightPanel({ tonight, mode, setMode, openId, setOpenId
       <header className="tn-head" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
         <span className="tn-handle" aria-hidden="true" />
         <div className="tn-title-row">
-          <button type="button" className="tn-grip" aria-expanded={mode === "open"} onClick={(e) => { if (e.detail === 0) setMode(mode === "open" ? "dock" : UP[mode]); }}>
+          <button type="button" className="tn-grip" aria-expanded={mode !== "peek"} onClick={(e) => { if (e.detail === 0) setMode(TAP[mode]); }}>
             <h2 className="tn-title">Tonight</h2>
+            {mode === "peek" && picks[0] && <span className="tn-peek-hint">{picks[0].title}</span>}
           </button>
           {mode === "open"
             ? <button type="button" className="tn-more" onClick={tonight.more}><Icon name="shuffle" size={18} /><span>Three more</span></button>
+            : mode === "peek" ? <Icon name="down" size={18} className="tn-peek-up" />
             : <span className="tn-when t-tab">{when(tonight.now)}</span>}
         </div>
       </header>

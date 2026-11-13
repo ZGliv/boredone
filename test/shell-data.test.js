@@ -28,6 +28,7 @@ test('guide notes attach to pack places without adding places', () => {
   assert.ok(noted.length >= 20, `${noted.length} notes`);
   for (const p of enriched.filter(p => p.photo)) assert.ok(p.photo.license, 'only licensed photos');
   assert.ok(enriched.every(p => !p.websitePhoto));
+  assert.ok(enriched.every(p => !p.mapPhoto), 'map photos come only from the photo index');
 });
 
 test('place states agree with the board: done wins, saves and plans by id or same venue', () => {
@@ -84,4 +85,11 @@ test('routes land old links on the new tabs and the switcher lists every pack', 
   assert.equal(pageFromHash('#board'), 'board');
   assert.equal(pageFromHash('#settings'), 'settings');
   assert.deepEqual(CITY_PACKS.map(p => p.id), ['pittsburgh', 'pittsburgh-metro', 'columbus']);
+});
+
+test('each city pack lists its own centre, so the map can fly there before the places load', () => {
+  for (const meta of CITY_PACKS) {
+    const data = read(`../data/city-packs/${meta.id}.json`);
+    assert.deepEqual(meta.center, data.center, meta.id);
+  }
 });

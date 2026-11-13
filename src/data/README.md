@@ -33,3 +33,5 @@ October 29 website-photo expansion: current guide 613 places, 329 with photos; 2
 October 29 follow-up: 337/613 records have photos, including 265/465 food/drink records. Eight additional records and their sources are listed in `output/photo-expansion-next/published-additions.json`. Atlas: 670,378 bytes, 295 source photos; guide revision `venue-websites-6`.
 
 October 29 corridor: `south-hills-corridor.json` holds 295 directory records from Southpointe, Bridgeville and South Hills; the area combines them with 150 downtown records and displays 445 places/136 photos. Photo audit: `output/corridor/selected.json`. The shared 720,242-byte atlas covers both guides.
+
+November 12 map photos: `place-photos.json` is derived, not hand-edited — `node scripts/build-place-photos.mjs` keeps the old guide's 614 places that have a bundled preview (18 licensed, 596 venue-website), each with its atlas cell, card preview and full original photo record for credits. The Map pairs them to pack places by id, then `sameVenue`; `test/place-photos.test.js` fails if the file is stale.

@@ -1,26 +1,25 @@
 .map-page { position: absolute; inset: 0; overflow: hidden; }
-.map-head { position: absolute; z-index: 2; top: 0; left: 0; right: 0; padding: calc(var(--safe-top) + var(--s2)) var(--gutter) var(--s3); pointer-events: none; }
-/* A band of the page colour behind the count, its lower edge feathered into
-   the map, so no dot ever runs through the numerals. */
+/* One slim row over the map: city, count, locate. A short band of the page
+   colour sits behind it, its lower edge feathered into the map. */
+.map-head { position: absolute; z-index: 2; top: 0; left: 0; right: 0; padding: calc(var(--safe-top) + var(--s1)) var(--gutter) 0; pointer-events: none; }
 .map-head::before {
-  content: ""; position: absolute; z-index: -1; inset: 0 0 -28px; pointer-events: none;
+  content: ""; position: absolute; z-index: -1; inset: 0 0 -20px; pointer-events: none;
   background: var(--body);
-  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent);
-  mask-image: linear-gradient(to bottom, #000 calc(100% - 44px), transparent);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 24px), transparent);
 }
-.map-count, .map-set { text-shadow: 0 0 6px var(--body), 0 0 2px var(--body); }
 .map-head > *:not(.map-head-row) { pointer-events: auto; width: max-content; max-width: 100%; }
 .map-head-row > * { pointer-events: auto; }
-.map-head-row { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); width: auto; }
-.map-locate { display: grid; place-items: center; width: var(--touch); height: var(--touch); margin-right: calc(var(--s2) * -1); border: 0; border-radius: var(--r-md); background: none; color: var(--muted); cursor: pointer; }
+.map-head-row { display: flex; align-items: center; gap: var(--s3); }
+.map-head .city-switcher { color: var(--ink); font-size: var(--text-lg); font-weight: 700; letter-spacing: -0.005em; }
+.map-head .city-switcher .icon { color: var(--muted); }
+.map-count { margin-left: auto; color: var(--muted); font-size: var(--text-sm); font-weight: 500; white-space: nowrap; }
+.map-count-done { color: var(--gold); font-weight: 700; }
+.map-locate { display: grid; place-items: center; width: var(--touch); height: var(--touch); margin-left: calc(var(--s2) * -1); margin-right: calc(var(--s3) * -1); border: 0; border-radius: var(--r-md); background: none; color: var(--muted); cursor: pointer; }
+.map-head-row > .city-switcher + .map-locate { margin-left: auto; }
 .map-locate:hover:not(:disabled) { color: var(--ink); }
 .map-locate-on { color: var(--ink); }
 .map-locate:disabled { opacity: 0.35; cursor: not-allowed; }
-.map-count { display: flex; align-items: baseline; gap: var(--s2); margin-top: calc(var(--s1) * -1); }
-.map-count-done { font-size: var(--display-lg); color: var(--gold); }
-.map-count-total { font-family: var(--font-display); font-weight: 700; font-size: var(--text-xl); letter-spacing: 0.01em; color: var(--ink); font-variant-numeric: tabular-nums; }
-.map-set { display: flex; align-items: center; gap: var(--s2); margin-top: var(--s2); font-size: var(--text-sm); font-weight: 600; color: var(--ink); }
-.map-set-left { color: var(--muted); font-weight: 500; }
 .map-kind { color: var(--muted); }
 .map-kind-done { color: var(--gold); }
 .map-kind-saved, .map-kind-planned { color: var(--blue); }
@@ -30,3 +29,9 @@
 .map-place-saved { color: var(--blue); }
 .map-place-actions { display: grid; grid-template-columns: 1fr 1fr auto; gap: var(--s2); margin-top: var(--s5); }
 .map-place-actions .map-saved:disabled { opacity: 1; border-color: var(--blue); color: var(--blue); }
+/* A place's photo, at the top of its sheet under the handle. The 16:10 box is
+   reserved before the image loads so the sheet does not jump. */
+.map-photo { position: relative; margin: 0 0 var(--s3); aspect-ratio: 16 / 10; max-height: 190px; width: 100%; overflow: hidden; border-radius: var(--r-md); background: var(--paper); }
+.map-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.map-photo figcaption { position: absolute; left: 8px; bottom: 8px; max-width: calc(100% - 16px); padding: 3px 7px; border-radius: 6px; background: rgb(8 8 8 / 0.72); color: #d9d6cc; font-size: 11px; line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+.map-photo figcaption a { color: inherit; text-decoration: underline; text-decoration-color: rgb(217 214 204 / 0.45); text-underline-offset: 2px; }
