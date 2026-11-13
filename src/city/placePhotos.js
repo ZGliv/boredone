@@ -50,3 +50,19 @@ function siteName(host) {
   const keep = parts.length > 2 && parts.at(-2).length <= 3 && parts.at(-1).length === 2 ? 3 : 2;
   return parts.slice(-keep).join(".");
 }
+
+// Background styles that show one row-major cell of the atlas at `size` px.
+// The cell is drawn a touch larger than the tile and centred, so a
+// neighbouring cell never shows along an edge.
+export function atlasCell(photo, size) {
+  if (!photo?.atlas || !Number.isInteger(photo.index) || photo.index < 0) return null;
+  const { atlas, columns, rows, index } = photo;
+  if (!columns || !rows || index >= columns * rows) return null;
+  const cell = size * 1.06, inset = (cell - size) / 2;
+  const px = (n) => `${Math.round(n * 100) / 100}px`;
+  return {
+    backgroundImage: `url("${atlas}")`,
+    backgroundSize: `${px(columns * cell)} ${px(rows * cell)}`,
+    backgroundPosition: `${px(-(index % columns) * cell - inset)} ${px(-Math.floor(index / columns) * cell - inset)}`,
+  };
+}

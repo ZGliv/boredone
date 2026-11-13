@@ -33,7 +33,7 @@
   width: 100%; min-height: 60px; padding: var(--s3) 0;
   border: 0; border-bottom: var(--hair); background: none; color: var(--ink); text-align: left;
 }
-.row:not(:has(.row-icon)) { grid-template-columns: 1fr auto; }
+.row:not(:has(> .row-icon, > .thumb)) { grid-template-columns: 1fr auto; }
 .row-button { cursor: pointer; }
 /* Rows never underline: a tap dims the row while pressed, like every list row. */
 .row-button { transition: opacity var(--t-fast) var(--ease); }
@@ -45,6 +45,30 @@
 .row-title { font-size: var(--text-lg); font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
 .row-detail { font-size: var(--text-sm); color: var(--muted); }
 .row-trail { font-size: var(--text-sm); color: var(--muted); font-variant-numeric: tabular-nums; text-align: right; }
+
+/* Place thumb: a rounded square (circles are the map's pins). A photo cut
+   from the pin atlas, or the kind icon on a tint. Gold ring and check when
+   done, blue ring on your pile. --thumb-cut matches what it sits on. */
+.thumb {
+  --thumb-cut: var(--paper);
+  position: relative; display: grid; place-items: center; flex: none;
+  width: var(--thumb); height: var(--thumb); border-radius: calc(var(--thumb) * 0.24);
+  background: color-mix(in srgb, var(--blue) 9%, var(--raised)); color: color-mix(in srgb, var(--blue) 40%, var(--muted));
+}
+.thumb::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; box-shadow: inset 0 0 0 1px rgb(245 243 234 / 0.07); }
+.thumb-img { position: absolute; inset: 0; border-radius: inherit; background-color: var(--raised); background-repeat: no-repeat; }
+.thumb-pile { background: color-mix(in srgb, var(--blue) 20%, var(--paper)); color: var(--blue); }
+.thumb-pile::after { box-shadow: inset 0 0 0 2px var(--blue); }
+.thumb-done { background: color-mix(in srgb, var(--gold) 18%, var(--paper)); color: var(--gold); }
+.thumb-done::after { box-shadow: inset 0 0 0 2px var(--gold); }
+.thumb-photo.thumb-pile::after, .thumb-photo.thumb-done::after { box-shadow: inset 0 0 0 2px currentColor, inset 0 0 0 3px rgb(8 8 8 / 0.35); }
+.thumb-check {
+  position: absolute; z-index: 1; right: -5px; bottom: -5px; display: grid; place-items: center;
+  width: 19px; height: 19px; border-radius: 50%; border: 2px solid var(--thumb-cut);
+  background: var(--gold); color: var(--on-gold);
+}
+.thumb-check .icon { stroke-width: 3.2; }
+.row .thumb { margin-right: var(--s1); }
 
 /* Fields: a caps label and a hairline. .field-inline shows its value as a
    fact and lays a transparent native input (date) over the whole row. */
@@ -66,7 +90,7 @@
 
 /* Progress dots and ring */
 .dots { display: inline-flex; gap: 4px; align-items: center; }
-.dot { width: 8px; height: 8px; border-radius: 50%; border: 1.4px solid var(--muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; border: 1.4px solid color-mix(in srgb, var(--blue) 45%, var(--muted)); }
 .dot-done { background: var(--gold); border-color: var(--gold); }
 .ring { flex: none; }
 

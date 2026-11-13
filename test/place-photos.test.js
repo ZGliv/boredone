@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync, existsSync} from 'node:fs';
 import {cityFromPack, enrichPlaces} from '../src/city/cityPlaces.js';
-import {guidePhoto, photoIndex, photoCredit} from '../src/city/placePhotos.js';
+import {atlasCell, guidePhoto, photoIndex, photoCredit} from '../src/city/placePhotos.js';
 import {buildPlacePhotos} from '../scripts/build-place-photos.mjs';
 
 const read = path => JSON.parse(readFileSync(new URL(path, import.meta.url), 'utf8'));
@@ -80,4 +80,18 @@ test('credit lines: author and licence for Commons, the site for website photos'
   assert.equal(photoCredit({kind: 'website', credit: {sourceUrl: 'https://media.thecapitalgrille.com/x'}}).text, 'thecapitalgrille.com');
   assert.equal(photoCredit({kind: 'website', credit: {sourceUrl: 'https://shop.example.co.uk/'}}).text, 'example.co.uk');
   assert.equal(photoCredit(null), null);
+});
+
+test('atlasCell shows the row-major cell, a touch oversized and centred', () => {
+  const photo = {atlas: '/photo-previews/pins.webp', columns: 16, rows: 34, index: 35};
+  // Cell 35 is column 3, row 2. At 50 px the cell is drawn at 53 px.
+  assert.deepEqual(atlasCell(photo, 50), {
+    backgroundImage: 'url("/photo-previews/pins.webp")',
+    backgroundSize: '848px 1802px',
+    backgroundPosition: '-160.5px -107.5px',
+  });
+  assert.equal(atlasCell({...photo, index: 16 * 34}, 50), null);
+  assert.equal(atlasCell({...photo, index: -1}, 50), null);
+  assert.equal(atlasCell(null, 50), null);
+  assert.equal(atlasCell({...photo, atlas: ''}, 50), null);
 });

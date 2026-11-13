@@ -18,7 +18,7 @@
 .map-locate { display: grid; place-items: center; width: var(--touch); height: var(--touch); margin-left: calc(var(--s2) * -1); margin-right: calc(var(--s3) * -1); border: 0; border-radius: var(--r-md); background: none; color: var(--muted); cursor: pointer; }
 .map-head-row > .city-switcher + .map-locate { margin-left: auto; }
 .map-locate:hover:not(:disabled) { color: var(--ink); }
-.map-locate-on { color: var(--ink); }
+.map-locate-on { color: var(--blue); }
 .map-locate:disabled { opacity: 0.35; cursor: not-allowed; }
 .map-kind { color: var(--muted); }
 .map-kind-done { color: var(--gold); }
@@ -28,7 +28,9 @@
 .map-place-done { color: var(--gold); }
 .map-place-saved { color: var(--blue); }
 .map-place-actions { display: grid; grid-template-columns: 1fr 1fr auto; gap: var(--s2); margin-top: var(--s5); }
-.map-place-actions .map-saved:disabled { opacity: 1; border-color: var(--blue); color: var(--blue); }
+.map-place-actions .map-saved:disabled { opacity: 1; border-color: var(--blue); color: var(--blue); background: var(--blue-wash); }
+.map-place-actions .btn-quiet:not(.btn-icon):not(:disabled) { border-color: var(--blue-line); }
+.map-place-actions .btn-quiet:not(.btn-icon):not(:disabled) .icon { color: var(--blue); }
 /* A place's photo, at the top of its sheet under the handle. The 16:10 box is
    reserved before the image loads so the sheet does not jump. */
 .map-photo { position: relative; margin: 0 0 var(--s3); aspect-ratio: 16 / 10; max-height: 190px; width: 100%; overflow: hidden; border-radius: var(--r-md); background: var(--paper); }

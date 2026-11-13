@@ -3,6 +3,8 @@
 .settings-facts div { display: flex; justify-content: space-between; align-items: baseline; gap: var(--s3); min-height: 48px; padding: var(--s3) 0; border-bottom: var(--hair); }
 .settings-facts dt { font-weight: 600; }
 .settings-facts dd { margin: 0; color: var(--muted); font-size: var(--text-sm); }
+.settings-facts .tally-done { color: var(--gold); font-weight: 600; }
+.settings-facts .tally-pile { color: var(--blue); font-weight: 600; }
 .settings-actions { display: flex; flex-wrap: wrap; gap: var(--s2); margin-top: var(--s4); }
 .settings-actions label { cursor: pointer; }
 .settings-actions .is-disabled { opacity: 0.4; cursor: not-allowed; }

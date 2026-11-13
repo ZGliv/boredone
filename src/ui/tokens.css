@@ -1,7 +1,7 @@
 /* Boredone design tokens. Steel City Blue, dark only.
    Gold = done, progress, the one primary action.
    Blue = saved, on your pile, save age, the highlighted pick.
-   Nothing else gets a hue. Screens use these variables, never raw values. */
+   Nothing else gets a hue; tints of these two are fine. Screens use these variables, never raw values. */
 /* Fonts are bundled from @fontsource (src/ui/fonts.js); no network fonts. */
 
 :root {
@@ -21,6 +21,12 @@
   --blue: #6cb6ff;
   --on-blue: #04213d;
   --water: #1c2730;
+  /* Low tints of the two hues over paper, for feature blocks and tiles. */
+  --gold-wash: color-mix(in srgb, var(--gold) 10%, var(--paper));
+  --blue-wash: color-mix(in srgb, var(--blue) 10%, var(--paper));
+  --gold-line: color-mix(in srgb, var(--gold) 45%, var(--line));
+  --blue-line: color-mix(in srgb, var(--blue) 40%, var(--line));
+  --blue-track: color-mix(in srgb, var(--blue) 24%, var(--paper));
   --scrim: rgb(8 8 8 / 0.72);
 
   /* Type */

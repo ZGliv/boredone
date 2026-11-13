@@ -1,7 +1,7 @@
 /* The Pile. Blue is the colour of a save; gold only on the one primary action. */
 .pile-head { align-items: flex-end; }
 .pile-sum { margin-top: var(--s2); color: var(--muted); font-size: var(--text-sm); letter-spacing: 0.01em; }
-.pile-sum b { color: var(--ink); font-weight: 600; }
+.pile-sum b { color: var(--blue); font-weight: 700; }
 /* The add control: a square gold key on the title's baseline, not a floating circle. */
 .pile-add-btn {
   display: grid; place-items: center; flex: none;
@@ -17,22 +17,24 @@
 .pile-group + .pile-group { margin-top: var(--s5); }
 .pile-sec {
   display: flex; justify-content: space-between; align-items: baseline;
-  padding-bottom: var(--s2); border-bottom: var(--hair);
-  font-size: var(--text-xs); font-weight: 600; letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--muted);
+  padding-bottom: var(--s2); border-bottom: 1px solid var(--blue-line);
+  font-size: var(--text-xs); font-weight: 600; letter-spacing: var(--track-caps); text-transform: uppercase; color: var(--blue);
 }
-.pile-sec .t-tab { color: var(--faint); letter-spacing: 0.02em; }
-.pile-group-soon .pile-sec span:first-child { color: var(--ink); }
+.pile-sec .t-tab { color: var(--blue); opacity: 0.7; letter-spacing: 0.02em; }
+.pile-group-past .pile-sec { color: var(--muted); border-bottom-color: var(--line); }
+.pile-group-past .pile-sec .t-tab { color: var(--faint); opacity: 1; }
+.pile-list { --thumb-cut: var(--body); }
 .pile-list { margin: 0; padding: 0; list-style: none; }
 
 /* Rows */
 .pile-row { display: flex; align-items: center; gap: var(--s2); border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
 .pile-row-main {
-  flex: 1; min-width: 0; display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: var(--s3);
+  flex: 1; min-width: 0; display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: var(--s3);
   min-height: 64px; padding: var(--s3) 0; border: 0; background: none; color: var(--ink); text-align: left; cursor: pointer;
 }
 .pile-row-main { transition: opacity var(--t-fast) var(--ease); }
 .pile-row-main:active { opacity: 0.6; }
-.pile-glyph { display: grid; place-items: center; width: 36px; height: 36px; border-radius: var(--r-md); background: var(--paper); color: var(--muted); }
+.pile-glyph { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 11px; background: var(--blue-wash); color: var(--blue); }
 .pile-row-loose .pile-glyph { background: none; border: 1.4px dashed var(--blue); color: var(--blue); }
 .pile-row-text { display: grid; gap: 3px; min-width: 0; }
 .pile-row-title { font-size: var(--text-lg); font-weight: 600; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

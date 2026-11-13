@@ -16,11 +16,11 @@
 .key-rest { background: var(--raised); }
 
 /* Next */
-.board .board-next { display: grid; grid-template-columns: 1fr auto; column-gap: var(--s3); row-gap: 2px; width: 100%; margin-top: var(--s5); padding: var(--s3) 0; border-top: var(--hair); border-bottom: var(--hair); min-height: 64px; }
-.board-next .t-caps { grid-column: 1; }
+.board button.board-next { display: grid; grid-template-columns: 1fr auto; column-gap: var(--s3); row-gap: 2px; width: 100%; margin-top: var(--s5); padding: var(--s3) var(--s4); min-height: 64px; background: var(--gold-wash); border: 1px solid var(--gold-line); border-left: 3px solid var(--gold); border-radius: var(--r-md); }
+.board-next .t-caps { grid-column: 1; color: var(--gold); }
 .board-next-name { grid-column: 1; font-size: var(--text-lg); font-weight: 600; }
 .board-next-why { grid-column: 1; font-size: var(--text-sm); color: var(--muted); }
-.board-next-go { grid-column: 2; grid-row: 1 / span 3; align-self: center; color: var(--muted); }
+.board-next-go { grid-column: 2; grid-row: 1 / span 3; align-self: center; color: var(--gold); }
 
 /* Sets */
 .board-sets, .board-hoods, .board-kinds, .board-facts { list-style: none; margin: 0; padding: 0; }
@@ -33,20 +33,24 @@
 /* Neighbourhoods */
 .section-label .t-tab { margin-left: var(--s1); color: var(--faint); }
 .board-hoods button { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--s3); width: 100%; min-height: 48px; border-bottom: var(--hair); }
-.board-hood-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board-hoods { --ring-track: var(--blue-track); }
+.board-hood-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.board-hoods button:has(.is-started) .board-hood-name { color: var(--ink); }
 .board-hood-count { color: var(--faint); font-size: var(--text-sm); }
-.board-hood-count.is-started { color: var(--ink); }
+.board-hood-count.is-started { color: var(--gold); font-weight: 600; }
 .board-hoods button, .board-kinds button, .board-sets button { transition: opacity var(--t-fast) var(--ease); }
 .board-hoods button:active, .board-kinds button:active, .board-sets button:active { opacity: 0.6; }
 
 /* Kinds */
 .board-kinds button { display: grid; grid-template-columns: 20px minmax(0, 11.5em) 1fr auto; align-items: center; gap: var(--s3); width: 100%; min-height: 44px; border-bottom: var(--hair); }
-.board-kinds .icon { color: var(--faint); }
+.board-kinds .icon { color: color-mix(in srgb, var(--blue) 50%, var(--faint)); }
 .board-kinds .icon.is-started { color: var(--gold); }
 .board-kind-name { font-size: var(--text-sm); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.board-kind-bar { position: relative; height: 2px; background: var(--raised); }
+.board-kind-bar { position: relative; height: 3px; border-radius: 2px; overflow: hidden; background: var(--blue-track); }
 .board-kind-bar i { position: absolute; inset: 0 auto 0 0; background: var(--gold); min-width: 0; }
-.board-kind-count { font-size: var(--text-sm); min-width: 5.5em; text-align: right; }
+.board-kind-count { font-size: var(--text-sm); min-width: 5.5em; text-align: right; color: var(--faint); }
+.board-kinds button:has(.is-started) .board-kind-count { color: var(--gold); font-weight: 600; }
+.board-kinds button:has(.is-started) .board-kind-count span { font-weight: 400; }
 .board-kind-count span { color: var(--faint); }
 
 /* Milestones: plain dated facts. */
@@ -54,10 +58,14 @@
 .board-facts time { color: var(--gold); font-size: var(--text-sm); font-weight: 600; }
 
 /* Place lists in a sheet */
-.place-list-count { font-size: var(--text-sm); color: var(--muted); }
+.place-list-count { font-size: var(--text-sm); color: var(--gold); font-weight: 600; }
+.place-list .sheet-body { --thumb-cut: var(--paper); }
 .place-list-group + .place-list-group { margin-top: var(--s4); }
 .place-list-label { display: flex; gap: var(--s2); margin: var(--s2) 0 0; }
 .place-list-label .t-tab { color: var(--faint); }
+.place-list-done .place-list-label { color: var(--gold); }
+.place-list-pile .place-list-label { color: var(--blue); }
+.place-list-done .place-list-label .t-tab, .place-list-pile .place-list-label .t-tab { color: inherit; opacity: 0.7; }
 
 @media (min-width: 640px) {
   .board-hoods { columns: 2; column-gap: var(--s6); }

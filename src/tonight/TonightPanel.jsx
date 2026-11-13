@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { directions } from "../app/routes";
 import { sheetDragAction } from "../sheetGesture.js";
-import { Button, Icon, SegmentedControl, kindIcon } from "../ui";
+import { Button, Icon, PlaceThumb, SegmentedControl, kindIcon } from "../ui";
 import { shortDay } from "../done/boardView";
 import { COMPANY, ENERGY, pickDay, sessionDate } from "./tonightModel.js";
 import "./tonight.css";
@@ -105,7 +105,9 @@ export default function TonightPanel({ tonight, mode, setMode, openId, setOpenId
               return (
                 <li key={pick.id} className={`tn-pick${open ? " tn-pick-open" : ""}`}>
                   <button type="button" className="tn-pick-head" aria-expanded={open} onClick={() => setOpenId(open ? null : pick.id)}>
-                    <span className={`tn-badge${pick.save ? " tn-badge-blue" : ""}${open ? " tn-badge-on" : ""}`}><Icon name={pickIcon(pick)} size={open ? 24 : 20} /></span>
+                    {pick.place
+                      ? <PlaceThumb place={pick.place} state={pick.save ? "saved" : null} size={open ? 44 : 36} />
+                      : <span className={`tn-badge${pick.save ? " tn-badge-blue" : ""}${open ? " tn-badge-on" : ""}`}><Icon name={pickIcon(pick)} size={open ? 24 : 20} /></span>}
                     <span className="tn-main">
                       <span className="tn-name">{pick.title}</span>
                       {pick.line && <span className="tn-line">{pick.line}</span>}
