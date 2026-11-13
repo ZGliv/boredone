@@ -9,6 +9,7 @@ import { useApp } from "../app/AppContext";
 import { directions } from "../app/routes";
 import useHashTarget from "../app/useHashTarget";
 import CitySwitcher from "../city/CitySwitcher";
+import { photoCredit } from "../city/placePhotos";
 import { count, distanceText, placeLine } from "../city/placeText";
 import WorldMap from "../map/WorldMap";
 import { distance } from "../recommendations.js";
@@ -47,7 +48,7 @@ export default function MapPage() {
   // What doing a pick would add to the board, for a pick with no other fact.
   const factOf = (pick) => (pick.place ? pickFact(doneEffect({ board, doneIds, place: pick.place, visitDate: tonightDate() })) : "");
   const openPick = mode === "open" ? tonight.picks.find((p) => p.id === openId) : null;
-  // A place sheet covers roughly the lower 300 px of the map.
+  // A place sheet covers roughly the lower 300 px of the map, 470 with a photo.
   const focus = selected ? { lat: selected.lat, lng: selected.lng, key: `place-${selected.id}` }
     : openPick?.spot ? { lat: openPick.spot.lat, lng: openPick.spot.lng, key: `${openPick.id}@${Math.round(panelHeight / 40)}` }
     : follow && inCity ? { lat: inCity.lat, lng: inCity.lng, key: `here-${follow}` } : null;
@@ -70,7 +71,7 @@ export default function MapPage() {
 
   return (
     <div className="map-page">
-      <WorldMap places={places} states={states} cityId={cityId} center={center} here={inCity} warmTo={warmTo} focus={focus} padBottom={selected ? 300 : panelHeight}
+      <WorldMap places={places} states={states} cityId={cityId} center={center} here={inCity} warmTo={warmTo} focus={focus} padBottom={selected ? (selected.mapPhoto ? 470 : 300) : panelHeight}
         selectedId={selected?.id || openPick?.place?.id || null}
         onSelect={(place) => { setSelected(place); if (place) setOpenId(null); }} />
       <header className="map-head">
@@ -118,6 +119,7 @@ function PlaceSheet({ place, here, onClose }) {
   }
   return (
     <Sheet key={place.id} title={place.name} modal={false} onClose={onClose} className="place-sheet"
+      media={place.mapPhoto ? <PlacePhoto photo={place.mapPhoto} /> : null}
       headerExtra={<Icon name={kindIcon(place.category)} className={`map-kind map-kind-${state || "none"}`} />}>
       {facts && <p className="map-place-line t-tab">{facts}</p>}
       {state === "done" && <p className="map-place-state map-place-done"><Icon name="check" size={16} />Done</p>}
@@ -131,5 +133,26 @@ function PlaceSheet({ place, here, onClose }) {
         <Button variant="quiet" icon="directions" href={directions(place)} aria-label="Directions" />
       </div>
     </Sheet>
+  );
+}
+
+// The place's photo with one line of credit: author and licence for an openly
+// licensed photo, the site it came from for a venue website photo. Places
+// without one show nothing here, never a placeholder.
+function PlacePhoto({ photo }) {
+  const credit = photoCredit(photo);
+  const [failed, setFailed] = useState(false);
+  if (failed) return null;
+  return (
+    <figure className="map-photo">
+      <img src={photo.card} alt="" decoding="async" onError={() => setFailed(true)} />
+      {credit && (
+        <figcaption>
+          Photo{" "}
+          {credit.href ? <a href={credit.href} target="_blank" rel="noreferrer">{credit.text}</a> : credit.text}
+          {credit.licence && <> · {credit.licenceHref ? <a href={credit.licenceHref} target="_blank" rel="noreferrer">{credit.licence}</a> : credit.licence}</>}
+        </figcaption>
+      )}
+    </figure>
   );
 }

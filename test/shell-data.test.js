@@ -28,6 +28,7 @@ test('guide notes attach to pack places without adding places', () => {
   assert.ok(noted.length >= 20, `${noted.length} notes`);
   for (const p of enriched.filter(p => p.photo)) assert.ok(p.photo.license, 'only licensed photos');
   assert.ok(enriched.every(p => !p.websitePhoto));
+  assert.ok(enriched.every(p => !p.mapPhoto), 'map photos come only from the photo index');
 });
 
 test('place states agree with the board: done wins, saves and plans by id or same venue', () => {

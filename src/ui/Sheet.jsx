@@ -13,9 +13,10 @@ const open = [];
 // modal={false}: the page behind stays usable (map sheets).
 // Render it only while open: {place && <Sheet onClose={...}>}.
 // children may be a function of close, for buttons that end the sheet.
+// media: shown at the very top, under the handle (a place's photo).
 // Mark the field to focus on open with data-autofocus (not autoFocus: React
 // focuses that before the sheet can see who opened it).
-export default function Sheet({ title, label, onClose, modal = true, className = "", headerExtra, children }) {
+export default function Sheet({ title, label, onClose, modal = true, className = "", headerExtra, media = null, children }) {
   const sheet = useRef(null), drag = useRef(null);
   // Read during the first render, before any child takes focus.
   const [opener] = useState(() => (typeof document === "undefined" ? null : document.activeElement));
@@ -79,6 +80,7 @@ export default function Sheet({ title, label, onClose, modal = true, className =
         aria-labelledby={title ? titleId : undefined} aria-label={title ? undefined : label} tabIndex={-1} style={style}>
         <header className="sheet-head" onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
           <span className="sheet-handle" aria-hidden="true" />
+          {media}
           {(title || headerExtra) && <div className="sheet-title-row">{title && <h2 id={titleId} className="sheet-title">{title}</h2>}{headerExtra}</div>}
         </header>
         <div className="sheet-body">{typeof children === "function" ? children(close) : children}</div>
